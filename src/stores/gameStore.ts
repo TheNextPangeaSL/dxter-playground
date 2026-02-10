@@ -6,7 +6,7 @@
 // that works seamlessly with Astro Islands (React components).
 //
 // Budget-based system: Flip tile = $2, Ask DxTER = $5
-// Objective: always maximize (find the global maximum in 0-100 range)
+// Objective: always minimize (find the global minimum in 0-100 range)
 // ---------------------------------------------------------------------------
 
 import { atom, computed } from "nanostores";
@@ -214,8 +214,8 @@ export function startGame(): void {
     config.benchmarkFunction = getRandomBenchmarkFunction();
   }
 
-  // Always maximize
-  config.objective = "maximize";
+  // Always minimize
+  config.objective = "minimize";
 
   // Randomize the Gaussian Mixture if selected
   if (config.benchmarkFunction === "gaussian_mixture") {
@@ -249,7 +249,7 @@ export function endGame(): void {
   const foundOptimum = isOptimumFound(
     current.stats.bestValueFound,
     current.stats.optimumValue,
-    "maximize",
+    "minimize",
   );
 
   // Calculate efficiency score
@@ -425,7 +425,7 @@ export function quickStart(difficulty: Difficulty = "medium"): void {
     suggestionsPerStep: preset.suggestionsPerStep,
     difficulty,
     benchmarkFunction: getRandomBenchmarkFunction(),
-    objective: "maximize",
+    objective: "minimize",
     advancedMode: false,
   });
   startGame();

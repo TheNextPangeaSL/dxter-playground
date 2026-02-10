@@ -4,6 +4,13 @@
 // Each function takes (x, y) in a normalized [0, 1] domain and maps them
 // to the appropriate mathematical domain internally. All functions return
 // a scalar value representing the objective surface.
+//
+// DESIGN CRITERIA for gameplay:
+//   1. Single global minimum (only ONE cell at value 0 after normalization)
+//   2. Minimum NOT at the center of the domain
+//   3. Well-separated local minima at different depths (traps for the player)
+//   4. Good dynamic range so values spread well across 0-100 after discretization
+//   5. Interesting landscape that rewards exploration guided by Dxter
 // ---------------------------------------------------------------------------
 
 import type { BenchmarkFunction } from "@/types/game";
@@ -37,108 +44,26 @@ function denormalize(norm: number, min: number, max: number): number {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Rastrigin Function
-//    f(x,y) = 20 + x² + y² - 10(cos(2πx) + cos(2πy))
-//    Domain: [-5.12, 5.12]   Global min: f(0,0) = 0
+// 1. Styblinski-Tang Function
+//    f(x,y) = 0.5 * (x⁴ - 16x² + 5x + y⁴ - 16y² + 5y)
+//    Domain: [-5, 5]
+//    Global min at (-2.9035, -2.9035) ≈ -78.33
+//    Normalized min position ≈ (0.21, 0.21) — upper-left quadrant
+//
+//    Has a deceptive local minimum near (2.75, 2.75) at a much higher value,
+//    creating an interesting trap. Good separation between global and local min.
 // ---------------------------------------------------------------------------
 
-function rastriginRaw(x: number, y: number): number {
-  const A = 10;
-  const n = 2;
-  return A * n + (x * x - A * Math.cos(2 * Math.PI * x)) + (y * y - A * Math.cos(2 * Math.PI * y));
+function styblinskiTangRaw(x: number, y: number): number {
+  return 0.5 * (x ** 4 - 16 * x * x + 5 * x + y ** 4 - 16 * y * y + 5 * y);
 }
 
-const rastrigin: BenchmarkEvaluator = {
+const styblinskiTang: BenchmarkEvaluator = {
   meta: {
-    id: "rastrigin",
-    name: "Rastrigin",
+    id: "styblinski_tang",
+    name: "Styblinski-Tang",
     description:
-      "Función altamente multimodal con muchos óptimos locales distribuidos regularmente. Difícil de optimizar sin una estrategia global.",
-    domain: [-5.12, 5.12],
-    naturalOptimum: "minimum",
-    localOptimaCount: 50,
-  },
-  evaluate(xNorm: number, yNorm: number): number {
-    const x = denormalize(xNorm, -5.12, 5.12);
-    const y = denormalize(yNorm, -5.12, 5.12);
-    return rastriginRaw(x, y);
-  },
-};
-
-// ---------------------------------------------------------------------------
-// 2. Ackley Function
-//    Domain: [-5, 5]   Global min: f(0,0) = 0
-// ---------------------------------------------------------------------------
-
-function ackleyRaw(x: number, y: number): number {
-  const a = 20;
-  const b = 0.2;
-  const c = 2 * Math.PI;
-  const sum1 = x * x + y * y;
-  const sum2 = Math.cos(c * x) + Math.cos(c * y);
-  return -a * Math.exp(-b * Math.sqrt(0.5 * sum1)) - Math.exp(0.5 * sum2) + a + Math.E;
-}
-
-const ackley: BenchmarkEvaluator = {
-  meta: {
-    id: "ackley",
-    name: "Ackley",
-    description:
-      "Superficie casi plana con muchos mínimos locales y un estrecho óptimo global en el centro. Perfecta para demostrar exploración vs explotación.",
-    domain: [-5, 5],
-    naturalOptimum: "minimum",
-    localOptimaCount: 30,
-  },
-  evaluate(xNorm: number, yNorm: number): number {
-    const x = denormalize(xNorm, -5, 5);
-    const y = denormalize(yNorm, -5, 5);
-    return ackleyRaw(x, y);
-  },
-};
-
-// ---------------------------------------------------------------------------
-// 3. Rosenbrock Function (Banana function)
-//    f(x,y) = (1-x)² + 100(y - x²)²
-//    Domain: [-2, 2]   Global min: f(1,1) = 0
-// ---------------------------------------------------------------------------
-
-function rosenbrockRaw(x: number, y: number): number {
-  return (1 - x) ** 2 + 100 * (y - x * x) ** 2;
-}
-
-const rosenbrock: BenchmarkEvaluator = {
-  meta: {
-    id: "rosenbrock",
-    name: "Rosenbrock",
-    description:
-      "Función con un valle estrecho y curvado (forma de banana). El óptimo global se encuentra dentro del valle, difícil de localizar con precisión.",
-    domain: [-2, 2],
-    naturalOptimum: "minimum",
-    localOptimaCount: 1,
-  },
-  evaluate(xNorm: number, yNorm: number): number {
-    const x = denormalize(xNorm, -2, 2);
-    const y = denormalize(yNorm, -2, 2);
-    return rosenbrockRaw(x, y);
-  },
-};
-
-// ---------------------------------------------------------------------------
-// 4. Himmelblau Function
-//    f(x,y) = (x² + y - 11)² + (x + y² - 7)²
-//    Domain: [-5, 5]   Four identical global minima ≈ 0
-// ---------------------------------------------------------------------------
-
-function himmelblauRaw(x: number, y: number): number {
-  return (x * x + y - 11) ** 2 + (x + y * y - 7) ** 2;
-}
-
-const himmelblau: BenchmarkEvaluator = {
-  meta: {
-    id: "himmelblau",
-    name: "Himmelblau",
-    description:
-      "Función con cuatro óptimos globales idénticos distribuidos simétricamente. Ideal para demostrar la capacidad de exploración multimodal.",
+      "Superficie con trampas simétricas: un mínimo local atractivo compite con el óptimo real escondido en la esquina opuesta. Ideal para demostrar la diferencia entre búsqueda local y global.",
     domain: [-5, 5],
     naturalOptimum: "minimum",
     localOptimaCount: 4,
@@ -146,19 +71,142 @@ const himmelblau: BenchmarkEvaluator = {
   evaluate(xNorm: number, yNorm: number): number {
     const x = denormalize(xNorm, -5, 5);
     const y = denormalize(yNorm, -5, 5);
-    return himmelblauRaw(x, y);
+    return styblinskiTangRaw(x, y);
+  },
+};
+
+// ---------------------------------------------------------------------------
+// 2. Eggholder Function
+//    f(x,y) = -(y+47)·sin(√|x/2+(y+47)|) - x·sin(√|x-(y+47)|)
+//    Domain: [-512, 512]
+//    Global min at (512, 404.23) ≈ -959.64
+//    Normalized min position ≈ (1.0, 0.89) — bottom-right edge
+//
+//    Extremely deceptive landscape with many deep local minima at very
+//    different depths scattered across the domain. One of the hardest
+//    benchmark functions — perfect for showcasing Dxter's guidance.
+// ---------------------------------------------------------------------------
+
+function eggholderRaw(x: number, y: number): number {
+  return (
+    -(y + 47) * Math.sin(Math.sqrt(Math.abs(x / 2 + (y + 47)))) -
+    x * Math.sin(Math.sqrt(Math.abs(x - (y + 47))))
+  );
+}
+
+const eggholder: BenchmarkEvaluator = {
+  meta: {
+    id: "eggholder",
+    name: "Eggholder",
+    description:
+      "Paisaje extremadamente engañoso con muchos valles profundos de diferente profundidad. El mínimo global está oculto cerca del borde del mapa, lejos de los valles más evidentes.",
+    domain: [-512, 512],
+    naturalOptimum: "minimum",
+    localOptimaCount: 50,
+  },
+  evaluate(xNorm: number, yNorm: number): number {
+    const x = denormalize(xNorm, -512, 512);
+    const y = denormalize(yNorm, -512, 512);
+    return eggholderRaw(x, y);
+  },
+};
+
+// ---------------------------------------------------------------------------
+// 3. Beale Function (log-compressed)
+//    f(x,y) = (1.5-x+xy)² + (2.25-x+xy²)² + (2.625-x+xy³)²
+//    Domain: [-4.5, 4.5]
+//    Global min at (3, 0.5), f* = 0
+//    Normalized min position ≈ (0.83, 0.56) — off-center right
+//
+//    The raw Beale function has extreme range (~0 to ~170000) which
+//    would compress all interesting structure into a tiny fraction of
+//    the normalized scale. We apply log(1 + f) compression to preserve
+//    the topology while spreading values across the full 0-100 range.
+//    Result: the cell at the minimum is clearly distinguishable from
+//    its neighbors (value 0 vs 4-8 vs 20+).
+// ---------------------------------------------------------------------------
+
+function bealeRaw(x: number, y: number): number {
+  return (
+    (1.5 - x + x * y) ** 2 +
+    (2.25 - x + x * y * y) ** 2 +
+    (2.625 - x + x * y ** 3) ** 2
+  );
+}
+
+const beale: BenchmarkEvaluator = {
+  meta: {
+    id: "beale",
+    name: "Beale",
+    description:
+      "Función con un pozo afilado descentrado a la derecha del mapa. La superficie crece rápidamente en todas direcciones, haciendo difícil localizar el mínimo sin una estrategia de búsqueda eficiente.",
+    domain: [-4.5, 4.5],
+    naturalOptimum: "minimum",
+    localOptimaCount: 1,
+  },
+  evaluate(xNorm: number, yNorm: number): number {
+    const x = denormalize(xNorm, -4.5, 4.5);
+    const y = denormalize(yNorm, -4.5, 4.5);
+    // Log compression to avoid extreme range dominating normalization
+    return Math.log(1 + bealeRaw(x, y));
+  },
+};
+
+// ---------------------------------------------------------------------------
+// 4. Michalewicz Function (m=2)
+//    f(x,y) = -sin(x)·sin⁴(x²/π) - sin(y)·sin⁴(2y²/π)
+//    Domain: [0, π]
+//    Global min at ≈ (2.20, 1.57) ≈ -1.73
+//    Normalized min position ≈ (0.70, 0.50) — off-center right
+//
+//    Uses m=2 (exponent 2m=4) instead of the standard m=10 to ensure
+//    the ridges are wide enough to be captured on a 12-20 cell grid.
+//    Creates narrow valleys ("ridges") that require precise exploration.
+//    The global minimum sits at the intersection of two ridges.
+// ---------------------------------------------------------------------------
+
+function michalewiczRaw(x: number, y: number): number {
+  const m = 2;
+  return (
+    -Math.sin(x) * Math.sin((x * x) / Math.PI) ** (2 * m) -
+    Math.sin(y) * Math.sin((2 * y * y) / Math.PI) ** (2 * m)
+  );
+}
+
+const michalewicz: BenchmarkEvaluator = {
+  meta: {
+    id: "michalewicz",
+    name: "Michalewicz",
+    description:
+      "Superficie con crestas estrechas que forman valles profundos. El mínimo global se encuentra donde dos crestas se cruzan, requiriendo una exploración precisa para localizarlo.",
+    domain: [0, Math.PI],
+    naturalOptimum: "minimum",
+    localOptimaCount: 4,
+  },
+  evaluate(xNorm: number, yNorm: number): number {
+    const x = denormalize(xNorm, 0, Math.PI);
+    const y = denormalize(yNorm, 0, Math.PI);
+    return michalewiczRaw(x, y);
   },
 };
 
 // ---------------------------------------------------------------------------
 // 5. Schwefel Function
 //    f(x,y) = 418.9829·2 - Σ xᵢ·sin(√|xᵢ|)
-//    Domain: [-500, 500]   Global min at (420.9687, 420.9687)
+//    Domain: [-500, 500]
+//    Global min at (420.9687, 420.9687) ≈ 0
+//    Normalized min position ≈ (0.92, 0.92) — bottom-right corner area
+//
+//    The global minimum is far from the center and far from the next
+//    best local minimum. This makes it extremely deceptive: local
+//    search strategies are drawn to false minima on the opposite side
+//    of the domain. Excellent for the game.
 // ---------------------------------------------------------------------------
 
 function schwefelRaw(x: number, y: number): number {
   const d = 2;
-  const sum = x * Math.sin(Math.sqrt(Math.abs(x))) + y * Math.sin(Math.sqrt(Math.abs(y)));
+  const sum =
+    x * Math.sin(Math.sqrt(Math.abs(x))) + y * Math.sin(Math.sqrt(Math.abs(y)));
   return 418.9829 * d - sum;
 }
 
@@ -180,9 +228,16 @@ const schwefel: BenchmarkEvaluator = {
 };
 
 // ---------------------------------------------------------------------------
-// 6. Gaussian Mixture (procedurally generated)
-//    A sum of several 2D Gaussians with random centers, amplitudes and widths.
+// 6. Gaussian Mixture (procedurally generated, NEGATED)
+//    A sum of several inverted 2D Gaussians creating wells of different depths.
 //    Domain: [0, 1] (already normalized)
+//
+//    IMPORTANT: The function is NEGATED so that the Gaussian peaks become
+//    wells (minima). This way, the player must find the deepest well —
+//    the most prominent Gaussian component. Without negation, the game
+//    would minimize a sum of positive Gaussians, whose minimum is the
+//    boring flat area far from all peaks (89/256 cells at value 0!).
+//    With negation: exactly 1 cell at value 0, clear target.
 // ---------------------------------------------------------------------------
 
 interface GaussianComponent {
@@ -202,7 +257,10 @@ function seededRandom(seed: number): () => number {
   };
 }
 
-function createGaussianMixtureComponents(seed: number = 42, count: number = 7): GaussianComponent[] {
+function createGaussianMixtureComponents(
+  seed: number = 42,
+  count: number = 7,
+): GaussianComponent[] {
   const rand = seededRandom(seed);
   const components: GaussianComponent[] = [];
   for (let i = 0; i < count; i++) {
@@ -229,7 +287,11 @@ function getGaussianComponents(seed: number = 42): GaussianComponent[] {
   return cachedGaussianComponents;
 }
 
-function gaussianMixtureRaw(x: number, y: number, components: GaussianComponent[]): number {
+function gaussianMixtureRaw(
+  x: number,
+  y: number,
+  components: GaussianComponent[],
+): number {
   let total = 0;
   for (const g of components) {
     const dx = (x - g.cx) / g.sigmaX;
@@ -244,27 +306,34 @@ const gaussianMixture: BenchmarkEvaluator = {
     id: "gaussian_mixture",
     name: "Mezcla Gaussiana",
     description:
-      "Paisaje suave con múltiples picos de diferentes alturas y anchuras. Simula un proceso real con varias zonas prometedoras.",
+      "Paisaje con múltiples pozos de diferente profundidad y anchura. El mínimo global está en el pozo más profundo. Simula un proceso real con varias zonas prometedoras.",
     domain: [0, 1],
-    naturalOptimum: "maximum",
+    naturalOptimum: "minimum",
     localOptimaCount: 7,
   },
   evaluate(xNorm: number, yNorm: number): number {
     const components = getGaussianComponents(42);
-    return gaussianMixtureRaw(xNorm, yNorm, components);
+    // Negate: peaks become wells, deepest well is the global minimum
+    return -gaussianMixtureRaw(xNorm, yNorm, components);
   },
 };
 
 // ---------------------------------------------------------------------------
-// 7. Sinusoidal (superposed sine waves)
-//    A combination of sine/cosine waves creating an interesting landscape.
+// 7. Sinusoidal (superposed sine waves, NEGATED)
+//    A combination of sine/cosine waves with an asymmetric envelope.
 //    Domain: [0, 1] (already normalized)
+//
+//    NEGATED so that the tallest peak becomes the deepest well (minimum).
+//    The asymmetric envelope at (0.4, 0.6) concentrates the deepest
+//    features in a specific region, creating a natural exploration target
+//    that isn't at the center of the grid.
 // ---------------------------------------------------------------------------
 
 function sinusoidalRaw(x: number, y: number): number {
   const scale = 2 * Math.PI;
   const term1 = Math.sin(3 * scale * x) * Math.cos(2 * scale * y) * 0.4;
-  const term2 = Math.sin(5 * scale * x + 1.2) * Math.sin(4 * scale * y + 0.8) * 0.25;
+  const term2 =
+    Math.sin(5 * scale * x + 1.2) * Math.sin(4 * scale * y + 0.8) * 0.25;
   const term3 = Math.cos(2 * scale * (x + y)) * 0.2;
   const term4 = Math.sin(7 * scale * x) * Math.cos(6 * scale * y) * 0.15;
   // Add a broad envelope so it's not perfectly symmetric
@@ -277,13 +346,14 @@ const sinusoidal: BenchmarkEvaluator = {
     id: "sinusoidal",
     name: "Sinusoidal",
     description:
-      "Ondas sinusoidales superpuestas con una envolvente asimétrica. Muchos óptimos locales con un pico global sutil.",
+      "Ondas sinusoidales superpuestas con una envolvente asimétrica. Muchos mínimos locales con un valle global sutil concentrado en una región específica del mapa.",
     domain: [0, 1],
-    naturalOptimum: "maximum",
+    naturalOptimum: "minimum",
     localOptimaCount: 40,
   },
   evaluate(xNorm: number, yNorm: number): number {
-    return sinusoidalRaw(xNorm, yNorm);
+    // Negate: tallest peak becomes deepest well
+    return -sinusoidalRaw(xNorm, yNorm);
   },
 };
 
@@ -291,18 +361,23 @@ const sinusoidal: BenchmarkEvaluator = {
 // Registry: all functions accessible by ID
 // ---------------------------------------------------------------------------
 
-export const BENCHMARK_FUNCTIONS: Record<BenchmarkFunction, BenchmarkEvaluator> = {
-  rastrigin,
-  ackley,
-  rosenbrock,
-  himmelblau,
+export const BENCHMARK_FUNCTIONS: Record<
+  BenchmarkFunction,
+  BenchmarkEvaluator
+> = {
+  styblinski_tang: styblinskiTang,
+  eggholder,
+  beale,
+  michalewicz,
   schwefel,
   gaussian_mixture: gaussianMixture,
   sinusoidal,
 };
 
 /** Get a benchmark evaluator by its ID */
-export function getBenchmarkFunction(id: BenchmarkFunction): BenchmarkEvaluator {
+export function getBenchmarkFunction(
+  id: BenchmarkFunction,
+): BenchmarkEvaluator {
   return BENCHMARK_FUNCTIONS[id];
 }
 
@@ -332,7 +407,10 @@ export interface GridEvaluation {
  * Evaluate a benchmark function over the entire grid and return
  * the raw values along with global min/max information.
  */
-export function evaluateGrid(functionId: BenchmarkFunction, gridSize: number): GridEvaluation {
+export function evaluateGrid(
+  functionId: BenchmarkFunction,
+  gridSize: number,
+): GridEvaluation {
   const fn = getBenchmarkFunction(functionId);
   const values: number[][] = [];
 
@@ -375,7 +453,11 @@ export function evaluateGrid(functionId: BenchmarkFunction, gridSize: number): G
  * Normalize a value to [0, 1] given the grid's min and max.
  * Returns 0 for the minimum and 1 for the maximum.
  */
-export function normalizeValue(value: number, min: number, max: number): number {
+export function normalizeValue(
+  value: number,
+  min: number,
+  max: number,
+): number {
   if (max === min) return 0.5;
   return (value - min) / (max - min);
 }
@@ -390,12 +472,12 @@ export function valueToColor(normalized: number): string {
 
   // Define color stops: [position, r, g, b]
   const stops: [number, number, number, number][] = [
-    [0.0, 30, 58, 95],    // deep blue
-    [0.2, 37, 99, 235],   // blue
-    [0.4, 34, 197, 94],   // green
-    [0.6, 234, 179, 8],   // yellow
-    [0.8, 239, 68, 68],   // red
-    [1.0, 255, 20, 147],  // hot pink
+    [0.0, 30, 58, 95], // deep blue
+    [0.2, 37, 99, 235], // blue
+    [0.4, 34, 197, 94], // green
+    [0.6, 234, 179, 8], // yellow
+    [0.8, 239, 68, 68], // red
+    [1.0, 255, 20, 147], // hot pink
   ];
 
   // Find the two stops we're between

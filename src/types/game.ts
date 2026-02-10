@@ -32,15 +32,15 @@ export interface Cell {
   revealOrder: number | null;
 }
 
-/** Objective direction – always maximize in the new design */
+/** Objective direction – always minimize (find the global minimum) */
 export type ObjectiveDirection = "maximize" | "minimize";
 
 /** Available benchmark functions */
 export type BenchmarkFunction =
-  | "rastrigin"
-  | "ackley"
-  | "rosenbrock"
-  | "himmelblau"
+  | "styblinski_tang"
+  | "eggholder"
+  | "beale"
+  | "michalewicz"
   | "schwefel"
   | "gaussian_mixture"
   | "sinusoidal";
@@ -64,7 +64,7 @@ export interface GameConfig {
   budget: number;
   /** Which benchmark function is being used */
   benchmarkFunction: BenchmarkFunction;
-  /** The objective – always maximize */
+  /** The objective – always minimize */
   objective: ObjectiveDirection;
   /** Difficulty preset that was selected */
   difficulty: Difficulty;
@@ -80,7 +80,7 @@ export interface GameStats {
   iterations: number;
   /** Budget spent so far */
   budgetSpent: number;
-  /** The best (maximum) value found so far (0-100 scale) */
+  /** The best (lowest) value found so far (0-100 scale) */
   bestValueFound: number;
   /** Position of the best value found */
   bestPosition: GridPosition | null;
@@ -192,7 +192,7 @@ export interface GameResult {
   durationMs: number;
   /** Final score [0, 100] */
   score: number;
-  /** Whether the global maximum was found */
+  /** Whether the global minimum was found */
   foundOptimum: boolean;
   /** Efficiency score as a percentage */
   efficiencyScore: number;
@@ -215,7 +215,7 @@ export interface DifficultyPreset {
 
 export const DIFFICULTY_PRESETS: Record<Difficulty, DifficultyPreset> = {
   easy: {
-    gridSize: 8,
+    gridSize: 12,
     budget: 100,
     suggestionsPerStep: DXTER_RECOMMENDATIONS,
     label: "Easy",
@@ -223,7 +223,7 @@ export const DIFFICULTY_PRESETS: Record<Difficulty, DifficultyPreset> = {
     complexity: "Simple patterns",
   },
   medium: {
-    gridSize: 12,
+    gridSize: 16,
     budget: 200,
     suggestionsPerStep: DXTER_RECOMMENDATIONS,
     label: "Medium",
@@ -231,7 +231,7 @@ export const DIFFICULTY_PRESETS: Record<Difficulty, DifficultyPreset> = {
     complexity: "Moderate complexity",
   },
   hard: {
-    gridSize: 16,
+    gridSize: 20,
     budget: 320,
     suggestionsPerStep: DXTER_RECOMMENDATIONS,
     label: "Hard",
@@ -245,10 +245,10 @@ export const DIFFICULTY_PRESETS: Record<Difficulty, DifficultyPreset> = {
 // ---------------------------------------------------------------------------
 
 export const ALL_BENCHMARK_FUNCTIONS: BenchmarkFunction[] = [
-  "rastrigin",
-  "ackley",
-  "rosenbrock",
-  "himmelblau",
+  "styblinski_tang",
+  "eggholder",
+  "beale",
+  "michalewicz",
   "schwefel",
   "gaussian_mixture",
   "sinusoidal",
@@ -265,10 +265,10 @@ export function getRandomBenchmarkFunction(): BenchmarkFunction {
 // ---------------------------------------------------------------------------
 
 export const DEFAULT_CONFIG: GameConfig = {
-  gridSize: 12,
+  gridSize: 16,
   budget: 200,
-  benchmarkFunction: "himmelblau",
-  objective: "maximize",
+  benchmarkFunction: "schwefel",
+  objective: "minimize",
   difficulty: "medium",
   suggestionsPerStep: DXTER_RECOMMENDATIONS,
   advancedMode: false,
@@ -278,9 +278,9 @@ export function createEmptyStats(): GameStats {
   return {
     iterations: 0,
     budgetSpent: 0,
-    bestValueFound: -Infinity,
+    bestValueFound: Infinity,
     bestPosition: null,
-    optimumValue: 100,
+    optimumValue: 0,
     optimumPosition: { row: 0, col: 0 },
     score: 0,
     revealHistory: [],
@@ -361,7 +361,7 @@ export function getPlayerArchetype(
     return {
       emoji: "🏆",
       title: "Champion",
-      description: "Persevered and found the global maximum",
+      description: "Persevered and found the global minimum",
     };
   }
 

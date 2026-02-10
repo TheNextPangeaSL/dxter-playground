@@ -119,7 +119,7 @@ export default function Landing() {
 
         {/* Subtitles */}
         <p className="text-base sm:text-lg text-slate-500 text-center max-w-xl mb-1">
-          Can you find the global maximum with limited resources?
+          Can you find the global minimum with limited resources?
         </p>
         <p className="text-sm sm:text-base text-slate-400 text-center max-w-xl mb-8">
           Learn how smarter experimentation outperforms brute force.
@@ -495,9 +495,9 @@ function InstructionsModal({ onClose }: { onClose: () => void }) {
             <p>
               You're exploring a hidden landscape of values. Your mission is to{" "}
               <strong className="text-slate-800">
-                find the global maximum
+                find the global minimum
               </strong>{" "}
-              — the highest value on the entire grid — before you run out of
+              — the lowest value on the entire grid — before you run out of
               budget.
             </p>
           </section>
@@ -516,7 +516,7 @@ function InstructionsModal({ onClose }: { onClose: () => void }) {
                   <strong className="text-slate-800">Click any tile</strong> to
                   flip it and reveal its hidden value. Each flip costs{" "}
                   <strong className="text-[#177B7D]">$2</strong> from your
-                  budget.
+                  budget. Lower values are better!
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
@@ -533,9 +533,9 @@ function InstructionsModal({ onClose }: { onClose: () => void }) {
                   3
                 </span>
                 <span>
-                  The game ends when you find the maximum (value{" "}
-                  <strong className="text-slate-800">100</strong>) or you run
-                  out of budget.
+                  The game ends when you find the minimum (value{" "}
+                  <strong className="text-slate-800">0</strong>) or you run out
+                  of budget.
                 </span>
               </li>
             </ul>
@@ -551,7 +551,7 @@ function InstructionsModal({ onClose }: { onClose: () => void }) {
               assistant. For <strong className="text-[#177B7D]">$5</strong>,
               DxTER will analyze the data you've collected so far and suggest{" "}
               <strong className="text-slate-800">3 tiles</strong> most likely to
-              contain high values. Suggested tiles appear with a{" "}
+              contain low values. Suggested tiles appear with a{" "}
               <span className="text-[#177B7D] font-semibold">
                 dashed teal border
               </span>
@@ -575,8 +575,8 @@ function InstructionsModal({ onClose }: { onClose: () => void }) {
                   style={{ backgroundColor: "#D1D5DB" }}
                 />
                 <span>
-                  <strong className="text-slate-700">Gray</strong> — Low value,
-                  far from the best found so far.
+                  <strong className="text-slate-700">Gray</strong> — Far from
+                  the best (lowest) value found so far.
                 </span>
               </div>
               <div className="flex items-center gap-3">
@@ -586,7 +586,7 @@ function InstructionsModal({ onClose }: { onClose: () => void }) {
                 />
                 <span>
                   <strong className="text-slate-700">Light teal</strong> — Close
-                  to the best value found (within 15%).
+                  to the best (lowest) value found (within 15 points).
                 </span>
               </div>
               <div className="flex items-center gap-3">
@@ -598,7 +598,7 @@ function InstructionsModal({ onClose }: { onClose: () => void }) {
                   <strong className="text-white bg-[#177B7D] px-1.5 py-0.5 rounded">
                     Dark teal
                   </strong>{" "}
-                  — The best value you've found so far.
+                  — The lowest value you've found so far.
                 </span>
               </div>
             </div>
@@ -613,25 +613,25 @@ function InstructionsModal({ onClose }: { onClose: () => void }) {
               <div className="flex justify-between">
                 <span>Easy</span>
                 <span className="font-semibold text-slate-700">
-                  8×8 grid · $100 budget · up to 50 flips
+                  12×12 grid · $100 budget · up to 50 flips
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>Medium</span>
                 <span className="font-semibold text-slate-700">
-                  12×12 grid · $200 budget · up to 100 flips
+                  16×16 grid · $200 budget · up to 100 flips
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>Hard</span>
                 <span className="font-semibold text-slate-700">
-                  16×16 grid · $320 budget · up to 160 flips
+                  20×20 grid · $320 budget · up to 160 flips
                 </span>
               </div>
             </div>
             <p className="mt-2.5">
               Your <strong className="text-slate-800">efficiency score</strong>{" "}
-              rewards finding the maximum while spending as little budget as
+              rewards finding the minimum while spending as little budget as
               possible. The best scores come from smart, strategic exploration —
               not brute force.
             </p>
@@ -648,8 +648,8 @@ function InstructionsModal({ onClose }: { onClose: () => void }) {
                 the landscape.
               </li>
               <li>
-                When you find a promising region (high values), explore its
-                neighbors to zero in on the peak.
+                When you find a promising region (low values), explore its
+                neighbors to zero in on the valley floor.
               </li>
               <li>
                 Use DxTER after 3-5 manual flips — it needs some data to give

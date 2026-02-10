@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 // Handles grid initialization, cell revealing, score calculation,
 // and all mutations on the game grid state.
-// Uses a budget-based system with maximize objective and 0-100 values.
+// Uses a budget-based system with minimize objective and 0-100 values.
 // ---------------------------------------------------------------------------
 
 import type {
@@ -37,10 +37,10 @@ export const COLOR_UNFLIPPED = "#FFFFFF";
 
 /**
  * Determine the tile background color based on its value relative to the
- * current best found value.
+ * current best (lowest) found value.
  *
  * - Best found → dark DxTER teal (#177B7D)
- * - Within 15% of best → light teal (#7FC7C3)
+ * - Within 15 points of best → light teal (#7FC7C3)
  * - Everything else → gray (#D1D5DB)
  */
 export function getTileColor(
@@ -51,10 +51,11 @@ export function getTileColor(
   if (isBestFound) return COLOR_BEST;
 
   // If no best found yet, everything is gray
-  if (!isFinite(bestFoundValue) || bestFoundValue <= 0) return COLOR_LOW;
+  if (!isFinite(bestFoundValue)) return COLOR_LOW;
 
-  const closenessThreshold = bestFoundValue * 0.85; // within 15% of best
-  if (cellValue >= closenessThreshold) return COLOR_CLOSE;
+  // Close = within 15 points above the best (lowest) value
+  const closenessThreshold = bestFoundValue + 15;
+  if (cellValue <= closenessThreshold) return COLOR_CLOSE;
 
   return COLOR_LOW;
 }
@@ -86,8 +87,8 @@ export function initializeGrid(config: GameConfig): {
   const evaluation = evaluateGrid(benchmarkFunction, gridSize);
   const { values, min, max } = evaluation;
 
-  // Objective is always maximize in this version
-  const optimumPosition: GridPosition = { ...evaluation.maxPosition };
+  // Objective is always minimize in this version
+  const optimumPosition: GridPosition = { ...evaluation.minPosition };
 
   // Build the Cell grid with values normalized to 0-100
   const grid: Cell[][] = [];
@@ -119,8 +120,8 @@ export function initializeGrid(config: GameConfig): {
     grid.push(rowCells);
   }
 
-  // The optimum value is always 100 (the max after normalization)
-  const optimumValue = 100;
+  // The optimum value is always 0 (the min after normalization)
+  const optimumValue = 0;
 
   return { grid, evaluation, optimumPosition, optimumValue };
 }
@@ -137,7 +138,7 @@ export function createGameState(config: GameConfig): GameState {
 
   const stats: GameStats = {
     ...createEmptyStats(),
-    bestValueFound: -Infinity,
+    bestValueFound: Infinity,
     optimumValue,
     optimumPosition,
   };
@@ -201,11 +202,11 @@ export function revealCell(
   targetCell.revealed = true;
   targetCell.revealOrder = newIterations;
 
-  // Determine if this is a new best value (maximize)
+  // Determine if this is a new best value (minimize)
   const isBetter = isValueBetter(
     cell.value,
     state.stats.bestValueFound,
-    "maximize",
+    "minimize",
   );
 
   let newBestValue = state.stats.bestValueFound;
@@ -246,17 +247,17 @@ export function revealCell(
   const newScore = calculateScore(
     newBestValue,
     state.stats.optimumValue,
-    "maximize",
+    "minimize",
     state.grid,
   );
 
   // Check if game is finished:
-  // 1. Found the optimum (value === 100)
+  // 1. Found the optimum (value === 0)
   // 2. Cannot afford another flip
   const foundOptimum = isOptimumFound(
     newBestValue,
     state.stats.optimumValue,
-    "maximize",
+    "minimize",
   );
 
   const newBudgetRemaining = state.config.budget - newBudgetSpent;
@@ -346,9 +347,7 @@ export function revealAllCells(grid: Cell[][]): Cell[][] {
 /**
  * Calculate the player's score as a percentage [0, 100].
  *
- * Since values are already normalized to 0-100 and objective is maximize,
- * the score is simply the best value found (clamped to [0, 100]).
- *
+ * For minimization:  score = ((worst - bestFound) / (worst - optimum)) * 100
  * For maximization:  score = ((bestFound - worst) / (optimum - worst)) * 100
  */
 export function calculateScore(
@@ -378,14 +377,17 @@ export function calculateScore(
 
 /**
  * Check whether the exact optimum has been found.
- * Since we round values to integers and optimum is always 100,
- * we check if bestFound === 100.
+ * For minimize: optimum is 0, check bestFound <= optimumValue.
+ * For maximize: optimum is 100, check bestFound >= optimumValue.
  */
 export function isOptimumFound(
   bestFound: number,
   optimumValue: number,
-  _objective: ObjectiveDirection,
+  objective: ObjectiveDirection,
 ): boolean {
+  if (objective === "minimize") {
+    return bestFound <= optimumValue;
+  }
   return bestFound >= optimumValue;
 }
 

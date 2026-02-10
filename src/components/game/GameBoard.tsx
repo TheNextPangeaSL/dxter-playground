@@ -110,7 +110,7 @@ export default function GameBoard() {
 
   const foundOptimum =
     bestValue !== null &&
-    checkOptimumFound(stats.bestValueFound, stats.optimumValue, "maximize");
+    checkOptimumFound(stats.bestValueFound, stats.optimumValue, "minimize");
 
   const budgetExhausted =
     getBudgetRemaining(config, stats) < FLIP_COST && !foundOptimum;
@@ -229,10 +229,10 @@ export default function GameBoard() {
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"
+                    d="M2.25 6L9 12.75l4.306-4.307a11.95 11.95 0 015.814 5.519l2.74 1.22m0 0l-5.94 2.28m5.94-2.28l-2.28-5.941"
                   />
                 </svg>
-                Goal: Find Maximum
+                Goal: Find Minimum
               </div>
 
               <div className="flex items-center gap-1 text-xs text-slate-500">
@@ -260,7 +260,7 @@ export default function GameBoard() {
                 <LegendItem
                   bgColor="#177B7D"
                   borderColor="#177B7D"
-                  label="Maximum"
+                  label="Minimum"
                 />
                 <LegendItem
                   bgColor="#ffffff"
@@ -341,7 +341,7 @@ export default function GameBoard() {
             <div className="best-value-card mb-5">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-sm font-medium text-white/80">
-                  Best value found
+                  Lowest value found
                 </span>
                 {/* Trophy icon */}
                 <svg
@@ -501,8 +501,9 @@ function GameOverModal({
   onPlayAgain: () => void;
   onViewResults: () => void;
 }) {
-  const best = bestValue ?? 0;
-  const pct = optimumValue > 0 ? Math.round((best / optimumValue) * 100) : 0;
+  const best = bestValue ?? 100;
+  // For minimize: optimum is 0, worst is 100. pct = how close to 0 from 100.
+  const pct = Math.max(0, Math.min(100, Math.round(100 - best)));
 
   return (
     <div className="modal-overlay">
@@ -547,14 +548,14 @@ function GameOverModal({
         {/* Title */}
         <h2 className="text-2xl font-display font-bold text-slate-800 mb-1">
           {foundOptimum
-            ? "Maximum Found!"
+            ? "Minimum Found!"
             : budgetExhausted
               ? "Budget Exhausted"
               : "Game Over"}
         </h2>
         <p className="text-sm text-slate-500 mb-6">
           {foundOptimum
-            ? "Congratulations! You found the global maximum."
+            ? "Congratulations! You found the global minimum."
             : "You have run out of budget and can no longer run experiments."}
         </p>
 
@@ -584,7 +585,7 @@ function GameOverModal({
               />
             </svg>
             <div className="text-center">
-              <p className="text-xs text-slate-400 mb-0.5">Global max</p>
+              <p className="text-xs text-slate-400 mb-0.5">Global min</p>
               <p className="text-3xl font-display font-bold text-[#177B7D]">
                 {optimumValue}
               </p>
@@ -602,7 +603,7 @@ function GameOverModal({
         {/* Quick stats */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           <div className="stat-card">
-            <p className="text-xs text-slate-400 mb-0.5">Best value</p>
+            <p className="text-xs text-slate-400 mb-0.5">Lowest value</p>
             <p className="text-xl font-display font-bold text-slate-800">
               {best}
             </p>
@@ -721,7 +722,7 @@ function Grid({
   isFinished: boolean;
   bestFoundValue: number;
 }) {
-  const gap = gridSize <= 8 ? 5 : gridSize <= 12 ? 4 : 3;
+  const gap = gridSize <= 12 ? 5 : gridSize <= 16 ? 4 : 3;
 
   return (
     <div
@@ -796,8 +797,8 @@ const GridCell = memo(function GridCell({
 
   // Font size based on grid size
   const fontSize =
-    gridSize <= 8 ? 14 : gridSize <= 12 ? 11 : gridSize <= 16 ? 9 : 7;
-  const showValue = cell.revealed && gridSize <= 16;
+    gridSize <= 12 ? 14 : gridSize <= 16 ? 11 : gridSize <= 20 ? 9 : 7;
+  const showValue = cell.revealed && gridSize <= 20;
 
   return (
     <div
@@ -807,7 +808,7 @@ const GridCell = memo(function GridCell({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        borderRadius: gridSize <= 12 ? "6px" : "4px",
+        borderRadius: gridSize <= 16 ? "6px" : "4px",
       }}
       onClick={handleClick}
       role="button"
@@ -836,15 +837,15 @@ const GridCell = memo(function GridCell({
             style={{
               top: "-5px",
               right: "-5px",
-              width: gridSize <= 8 ? "16px" : "13px",
-              height: gridSize <= 8 ? "16px" : "13px",
+              width: gridSize <= 12 ? "16px" : "13px",
+              height: gridSize <= 12 ? "16px" : "13px",
             }}
           >
             <svg
               className="text-[#177B7D]"
               style={{
-                width: gridSize <= 8 ? "14px" : "11px",
-                height: gridSize <= 8 ? "14px" : "11px",
+                width: gridSize <= 12 ? "14px" : "11px",
+                height: gridSize <= 12 ? "14px" : "11px",
               }}
               fill="none"
               viewBox="0 0 24 24"

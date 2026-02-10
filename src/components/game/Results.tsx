@@ -55,7 +55,7 @@ export default function Results() {
   const foundOptimum = isOptimumFound(
     stats.bestValueFound,
     stats.optimumValue,
-    "maximize",
+    "minimize",
   );
 
   // Efficiency score
@@ -167,8 +167,8 @@ export default function Results() {
         <div className="text-center mb-8">
           <h2 className="text-2xl sm:text-3xl font-display font-bold text-slate-800 mb-2">
             {foundOptimum
-              ? "You found the global maximum!"
-              : `You reached ${stats.bestValueFound} of ${stats.optimumValue}`}
+              ? "You found the global minimum!"
+              : `You reached ${stats.bestValueFound} — optimum was ${stats.optimumValue}`}
           </h2>
 
           {/* Tags */}
@@ -181,7 +181,7 @@ export default function Results() {
               {config.gridSize} &times; {config.gridSize} grid
             </span>
             <span className="text-slate-400">&middot;</span>
-            <span>Goal: Find the global maximum within budget</span>
+            <span>Goal: Find the global minimum within budget</span>
           </div>
         </div>
 
@@ -207,13 +207,15 @@ export default function Results() {
             {/* Big stats */}
             <div className="grid grid-cols-3 gap-6 mb-5">
               <div className="text-center">
-                <p className="text-xs text-slate-400 mb-1">Best Value Found</p>
+                <p className="text-xs text-slate-400 mb-1">
+                  Lowest Value Found
+                </p>
                 <p className="text-4xl font-display font-bold text-[#177B7D]">
                   {stats.bestValueFound}
                 </p>
                 {foundOptimum && (
                   <p className="text-xs text-[#177B7D] font-medium mt-1 flex items-center justify-center gap-1">
-                    Global Maximum
+                    Global Minimum
                     <svg
                       className="w-3.5 h-3.5"
                       fill="none"
@@ -326,7 +328,7 @@ export default function Results() {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="inline-block w-3 h-3 rounded-full bg-yellow-400 border border-yellow-500" />
-                  Global max
+                  Global min
                 </span>
               </div>
             </div>
@@ -365,16 +367,16 @@ export default function Results() {
 
                     // Compute cell size based on grid size
                     const cellSize =
-                      boardData.gridSize <= 8
+                      boardData.gridSize <= 12
                         ? 36
-                        : boardData.gridSize <= 12
+                        : boardData.gridSize <= 16
                           ? 28
                           : 22;
 
                     const fontSize =
-                      boardData.gridSize <= 8
+                      boardData.gridSize <= 12
                         ? 10
-                        : boardData.gridSize <= 12
+                        : boardData.gridSize <= 16
                           ? 8
                           : 7;
 
@@ -390,7 +392,7 @@ export default function Results() {
                             ? "inset 0 0 0 2px rgba(255,255,255,0.85)"
                             : undefined,
                         }}
-                        title={`(${cell.row}, ${cell.col}) = ${cell.value}${isOptimum ? " ★ Global Max" : ""}${isPlayerRevealed ? ` · Click #${cell.revealOrder}` : ""}`}
+                        title={`(${cell.row}, ${cell.col}) = ${cell.value}${isOptimum ? " ★ Global Min" : ""}${isPlayerRevealed ? ` · Click #${cell.revealOrder}` : ""}`}
                       >
                         {/* Optimum star marker */}
                         {isOptimum && (
@@ -463,7 +465,7 @@ export default function Results() {
                 %)
               </span>
               <span>
-                Global max at ({boardData.optimumPosition.row},{" "}
+                Global min at ({boardData.optimumPosition.row},{" "}
                 {boardData.optimumPosition.col})
               </span>
             </div>
@@ -540,7 +542,7 @@ export default function Results() {
               />
             </svg>
             <p className="text-sm text-slate-600">
-              Smart experimentation with DxTER helps reach better results with
+              Smart experimentation with DxTER helps reach the minimum with
               fewer attempts
             </p>
           </div>

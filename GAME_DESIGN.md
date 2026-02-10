@@ -38,9 +38,9 @@ La idea central es que el jugador comprenda, jugando, por qué la optimización 
 
 La función `f(x, y)` se selecciona **aleatoriamente** al inicio de cada partida entre las funciones disponibles:
 
-- **Funciones clásicas de benchmark** de optimización (Rastrigin, Ackley, Rosenbrock, Himmelblau, Schwefel).
+- **Funciones clásicas de benchmark** de optimización (Styblinski-Tang, Eggholder, Beale, Michalewicz, Schwefel).
 - **Funciones generadas proceduralmente** (Mezcla Gaussiana, Sinusoidal).
-- La función puede tener **un único óptimo global** o **múltiples óptimos locales**, lo que aumenta la dificultad y evidencia la utilidad de Dxter.
+- Todas las funciones están diseñadas para tener **un único mínimo global claro** (una sola celda a valor 0 tras normalización) y **múltiples mínimos locales** a distintas profundidades que actúan como trampas, lo que aumenta la dificultad y evidencia la utilidad de Dxter.
 
 > **Nota:** Si el jugador activa las **Opciones avanzadas** durante la selección de dificultad, puede elegir la función manualmente en lugar de que sea aleatoria.
 
@@ -56,9 +56,9 @@ La función `f(x, y)` se selecciona **aleatoriamente** al inicio de cada partida
 
 - El jugador debe **encontrar la celda con el valor mínimo** de la función oculta. **El objetivo siempre es minimizar.**
 - Dispone de un **número muy limitado de intentos** según la dificultad:
-  - 🟢 **Fácil**: 5 intentos (cuadrícula 20×20)
-  - 🟡 **Medio**: 10 intentos (cuadrícula 30×30)
-  - 🔴 **Difícil**: 20 intentos (cuadrícula 40×40)
+  - 🟢 **Fácil**: cuadrícula 12×12, presupuesto $100
+  - 🟡 **Medio**: cuadrícula 16×16, presupuesto $200
+  - 🔴 **Difícil**: cuadrícula 20×20, presupuesto $320
 - Al final de la partida, se revela toda la cuadrícula y se muestra **dónde estaba realmente el mínimo** y cuán cerca estuvo el jugador.
 
 ---
@@ -70,7 +70,7 @@ El juego funciona siempre en **modo guiado por Dxter**. No existe selección de 
 | Aspecto | Detalle |
 |---|---|
 | **Descripción** | Dxter sugiere al jugador las mejores celdas a revelar, pero el jugador puede explorar cualquier celda. |
-| **Intentos** | Fácil: 5, Medio: 10, Difícil: 20. |
+| **Presupuesto** | Fácil: $100 (12×12), Medio: $200 (16×16), Difícil: $320 (20×20). |
 | **Estrategia** | Dxter analiza los datos revelados y **sugiere las siguientes celdas** óptimas a explorar (destacándolas visualmente). El jugador puede seguir las sugerencias o explorar libremente. |
 | **Resultado** | Al agotar los intentos, se muestra su mejor valor encontrado vs. el mínimo real. |
 | **Propósito** | Demostrar el poder de la optimización bayesiana para encontrar mínimos con muy pocos experimentos. |

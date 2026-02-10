@@ -12,11 +12,11 @@ export interface HighScoreEntry {
   playerName: string;
   /** Difficulty level played */
   difficulty: Difficulty;
-  /** Grid size (e.g. 8, 12, 16) */
+  /** Grid size (e.g. 12, 16, 20) */
   gridSize: number;
   /** Best value found (0-100) */
   bestValue: number;
-  /** Whether the global maximum was found */
+  /** Whether the global minimum was found */
   foundOptimum: boolean;
   /** Efficiency score (0-100) */
   efficiencyScore: number;
