@@ -1,48 +1,43 @@
 import { useStore } from "@nanostores/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   $gameState,
   $config,
   $stats,
-  $comparison,
-  $canCompare,
+  $lastSavedHighScore,
   goToLanding,
-  goToSetup,
   restartGame,
-  startGame,
-  updateConfig,
-  clearComparison,
 } from "@/stores/gameStore";
-import type { Cell, GameResult, ModeComparison } from "@/types/game";
+import { DIFFICULTY_PRESETS, getPlayerArchetype } from "@/types/game";
+import type { Difficulty } from "@/types/game";
+import { isOptimumFound } from "@/lib/grid";
 import { valueToColor } from "@/lib/functions";
-import { getAllFunctionMetas } from "@/lib/functions";
+import {
+  loadHighScores,
+  getHighScoresByDifficulty,
+  formatDate,
+} from "@/lib/highScores";
 
 // ---------------------------------------------------------------------------
-// Results – End-of-game screen
+// Results – End-of-game screen (matches PantallaFinal.png mock)
 // ---------------------------------------------------------------------------
+
+const DIFFICULTY_TABS: Difficulty[] = ["easy", "medium", "hard"];
 
 export default function Results() {
   const gameState = useStore($gameState);
   const config = useStore($config);
   const stats = useStore($stats);
-  const comparison = useStore($comparison);
-  const canCompare = useStore($canCompare);
+  const lastSaved = useStore($lastSavedHighScore);
 
-  const [animateScore, setAnimateScore] = useState(false);
-  const [showFullGrid, setShowFullGrid] = useState(true);
-  const [activeTab, setActiveTab] = useState<"summary" | "comparison" | "grid">(
-    "summary"
+  const [animateIn, setAnimateIn] = useState(false);
+  const [scoreTab, setScoreTab] = useState<Difficulty | "all">(
+    config.difficulty,
   );
 
-  const functionMetas = getAllFunctionMetas();
-  const functionMeta = functionMetas.find(
-    (f) => f.id === config.benchmarkFunction
-  );
-
-  // Animate score on mount
   useEffect(() => {
-    const timer = setTimeout(() => setAnimateScore(true), 300);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setAnimateIn(true), 200);
+    return () => clearTimeout(t);
   }, []);
 
   // Calculate duration
@@ -53,1144 +48,663 @@ export default function Results() {
         ? Date.now() - gameState.startedAt
         : 0;
   const durationSec = Math.round(durationMs / 1000);
-  const durationDisplay =
-    durationSec >= 60
-      ? `${Math.floor(durationSec / 60)}m ${durationSec % 60}s`
-      : `${durationSec}s`;
+  const mins = Math.floor(durationSec / 60);
+  const secs = durationSec % 60;
+  const durationDisplay = `${mins}:${String(secs).padStart(2, "0")}`;
 
-  // Distance from best found to optimum
-  const distanceToOptimum =
-    stats.bestPosition && stats.optimumPosition
-      ? Math.sqrt(
-          (stats.bestPosition.row - stats.optimumPosition.row) ** 2 +
-            (stats.bestPosition.col - stats.optimumPosition.col) ** 2
-        )
-      : null;
+  const foundOptimum = isOptimumFound(
+    stats.bestValueFound,
+    stats.optimumValue,
+    "maximize",
+  );
 
-  // Score tier
-  const scoreTier = getScoreTier(stats.score);
+  // Efficiency score
+  const budgetFraction = stats.budgetSpent / config.budget;
+  const efficiencyScore = Math.max(
+    0,
+    Math.min(100, Math.round(stats.score * (1 - budgetFraction * 0.5))),
+  );
 
-  // Other mode label
-  const otherMode = config.mode === "manual" ? "guided" : "manual";
-  const otherModeLabel =
-    otherMode === "manual" ? "🖐️ Modo Manual" : "🤖 Modo Guiado por Dxter";
+  // Player archetype
+  const archetype = getPlayerArchetype(stats, config, foundOptimum);
 
-  const handlePlayOtherMode = () => {
-    updateConfig({ mode: otherMode });
-    startGame();
-  };
+  // Comparison: typical optimized run iterations (rough estimate)
+  const typicalIterations = Math.max(
+    Math.round(config.gridSize * 1.2),
+    stats.iterations - 3,
+  );
+
+  const preset = DIFFICULTY_PRESETS[config.difficulty];
+
+  // High scores
+  const highScores = useMemo(() => {
+    if (scoreTab === "all") return loadHighScores();
+    return getHighScoresByDifficulty(scoreTab);
+  }, [scoreTab, lastSaved]);
+
+  // Build board overview data
+  const boardData = useMemo(() => {
+    const grid = gameState.grid;
+    if (!grid || grid.length === 0) return null;
+
+    // Collect cells that were player-revealed (have a revealOrder)
+    const playerRevealed: { row: number; col: number; order: number }[] = [];
+    for (const row of grid) {
+      for (const cell of row) {
+        if (cell.revealOrder !== null) {
+          playerRevealed.push({
+            row: cell.row,
+            col: cell.col,
+            order: cell.revealOrder,
+          });
+        }
+      }
+    }
+
+    return {
+      grid,
+      gridSize: grid.length,
+      playerRevealed,
+      optimumPosition: stats.optimumPosition,
+      bestPosition: stats.bestPosition,
+    };
+  }, [gameState.grid, stats.optimumPosition, stats.bestPosition]);
 
   return (
-    <div className="min-h-dvh flex flex-col items-center px-4 py-8 sm:py-12">
-      {/* Header */}
-      <div className="text-center mb-8 animate-[fade-in_0.5s_ease-out]">
-        <div className="text-5xl mb-3">{scoreTier.emoji}</div>
-        <h1 className="text-3xl sm:text-4xl font-display font-bold mb-2">
-          {scoreTier.title}
-        </h1>
-        <p className="text-slate-500 text-sm sm:text-base max-w-md mx-auto">
-          {scoreTier.message}
-        </p>
-        <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-400">
-          <span>
-            {config.mode === "manual" ? "🖐️ Manual" : "🤖 Guiado por Dxter"}
-          </span>
-          <span>·</span>
-          <span>{functionMeta?.name ?? config.benchmarkFunction}</span>
-          <span>·</span>
-          <span>
-            {config.gridSize}×{config.gridSize}
-          </span>
+    <div className="min-h-dvh bg-[#f5f7fa]">
+      {/* ── Header Bar ── */}
+      <div className="bg-white border-b border-[#e5e7eb]">
+        <div className="max-w-5xl mx-auto flex items-center justify-between px-4 sm:px-6 py-4">
+          <h1 className="text-base sm:text-lg font-display font-bold text-slate-800">
+            DxTER The Optimization Game
+          </h1>
+          <button
+            onClick={goToLanding}
+            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors cursor-pointer"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+              />
+            </svg>
+            Back to Menu
+          </button>
         </div>
       </div>
 
-      {/* Animated Score Display */}
+      {/* ── Main Content ── */}
       <div
-        className={`
-          relative mb-10 transition-all duration-1000 ease-out
-          ${animateScore ? "scale-100 opacity-100" : "scale-75 opacity-0"}
-        `}
+        className={`max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 transition-all duration-700 ${animateIn ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
       >
-        <div className="relative w-40 h-40 sm:w-48 sm:h-48">
-          <ScoreRing score={stats.score} animate={animateScore} />
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-4xl sm:text-5xl font-display font-bold text-slate-800 tabular-nums">
-              {animateScore ? stats.score.toFixed(1) : "0.0"}
-            </span>
-            <span className="text-xs text-slate-500 uppercase tracking-wider">
-              Puntuación
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 mb-6">
-        <TabButton
-          active={activeTab === "summary"}
-          onClick={() => setActiveTab("summary")}
-          label="📊 Resumen"
-        />
-        <TabButton
-          active={activeTab === "grid"}
-          onClick={() => setActiveTab("grid")}
-          label="🗺️ Mapa"
-        />
-        {(canCompare || comparison.manual || comparison.guided) && (
-          <TabButton
-            active={activeTab === "comparison"}
-            onClick={() => setActiveTab("comparison")}
-            label="⚔️ Comparar"
-          />
-        )}
-      </div>
-
-      {/* Tab Content */}
-      <div className="w-full max-w-3xl animate-[fade-in_0.3s_ease-out]">
-        {activeTab === "summary" && (
-          <SummaryTab
-            stats={stats}
-            config={config}
-            durationDisplay={durationDisplay}
-            distanceToOptimum={distanceToOptimum}
-            functionMeta={functionMeta}
-          />
-        )}
-
-        {activeTab === "grid" && (
-          <GridTab
-            grid={gameState.grid}
-            gridSize={config.gridSize}
-            showFullGrid={showFullGrid}
-            onToggleFullGrid={() => setShowFullGrid(!showFullGrid)}
-            stats={stats}
-          />
-        )}
-
-        {activeTab === "comparison" && (
-          <ComparisonTab comparison={comparison} canCompare={canCompare} />
-        )}
-      </div>
-
-      {/* Action Buttons */}
-      <div className="mt-10 flex flex-col sm:flex-row items-center gap-3 animate-[slide-up_0.6s_ease-out]">
-        {/* Play the other mode */}
-        <button
-          onClick={handlePlayOtherMode}
-          className="group relative px-7 py-3.5 bg-gradient-to-r from-dxter-600 to-dxter-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-dxter-600/30 hover:shadow-dxter-500/50 hover:scale-105 transition-all duration-200 cursor-pointer"
-        >
-          <span className="relative z-10 flex items-center gap-2">
-            {otherMode === "guided" ? (
-              <>
-                🤖 Jugar con Dxter
-              </>
-            ) : (
-              <>
-                🖐️ Jugar en Manual
-              </>
-            )}
-          </span>
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-dxter-500 to-dxter-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-        </button>
-
-        <button
-          onClick={restartGame}
-          className="px-6 py-3 border border-slate-300 text-slate-600 font-medium text-sm rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 cursor-pointer flex items-center gap-2"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M20.016 4.657v4.992"
-            />
-          </svg>
-          Reiniciar
-        </button>
-
-        <button
-          onClick={goToSetup}
-          className="px-6 py-3 text-slate-500 hover:text-slate-700 font-medium text-sm rounded-xl hover:bg-slate-50 transition-all duration-200 cursor-pointer flex items-center gap-2"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-          </svg>
-          Nueva configuración
-        </button>
-
-        <button
-          onClick={goToLanding}
-          className="px-6 py-3 text-slate-400 hover:text-slate-600 font-medium text-sm rounded-xl transition-colors cursor-pointer"
-        >
-          Inicio
-        </button>
-      </div>
-
-      {/* Footer */}
-      <footer className="mt-12 text-center text-xs text-slate-400">
-        <p>
-          Hecho con 💙 por el equipo de{" "}
-          <span className="text-dxter-600 font-medium">Dxter</span>
-          {" · "}
-          Optimización bayesiana para investigadores
-        </p>
-      </footer>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Score Ring – SVG animated circular progress
-// ---------------------------------------------------------------------------
-
-function ScoreRing({
-  score,
-  animate,
-}: {
-  score: number;
-  animate: boolean;
-}) {
-  const radius = 72;
-  const circumference = 2 * Math.PI * radius;
-  const progress = animate ? score / 100 : 0;
-  const strokeDashoffset = circumference * (1 - progress);
-
-  const color =
-    score >= 90
-      ? "var(--color-success)"
-      : score >= 70
-        ? "var(--color-dxter-400)"
-        : score >= 50
-          ? "var(--color-warning)"
-          : "var(--color-error)";
-
-  return (
-    <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
-      {/* Background ring */}
-      <circle
-        cx="80"
-        cy="80"
-        r={radius}
-        fill="none"
-        stroke="#e2e8f0"
-        strokeWidth="8"
-      />
-      {/* Progress ring */}
-      <circle
-        cx="80"
-        cy="80"
-        r={radius}
-        fill="none"
-        stroke={color}
-        strokeWidth="8"
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={strokeDashoffset}
-        style={{
-          transition: "stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1)",
-          filter: `drop-shadow(0 0 6px ${color})`,
-        }}
-      />
-      {/* Glow effect */}
-      <circle
-        cx="80"
-        cy="80"
-        r={radius}
-        fill="none"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={strokeDashoffset}
-        opacity="0.3"
-        style={{
-          transition: "stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1)",
-          filter: `blur(4px)`,
-        }}
-      />
-    </svg>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// TabButton
-// ---------------------------------------------------------------------------
-
-function TabButton({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`
-        px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 cursor-pointer
-        ${
-          active
-            ? "bg-slate-100 text-slate-800 shadow-sm"
-            : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-        }
-      `}
-    >
-      {label}
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Summary Tab
-// ---------------------------------------------------------------------------
-
-function SummaryTab({
-  stats,
-  config,
-  durationDisplay,
-  distanceToOptimum,
-  functionMeta,
-}: {
-  stats: typeof import("@/types/game").createEmptyStats extends () => infer R
-    ? R
-    : never;
-  config: typeof import("@/types/game").DEFAULT_CONFIG;
-  durationDisplay: string;
-  distanceToOptimum: number | null;
-  functionMeta: ReturnType<typeof getAllFunctionMetas>[number] | undefined;
-}) {
-  return (
-    <div className="space-y-6">
-      {/* Main stats grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <ResultStatCard
-          label="Mejor valor"
-          value={
-            isFinite(stats.bestValueFound)
-              ? stats.bestValueFound.toFixed(4)
-              : "—"
-          }
-          icon="🏆"
-        />
-        <ResultStatCard
-          label="Óptimo real"
-          value={stats.optimumValue.toFixed(4)}
-          icon="💎"
-        />
-        <ResultStatCard
-          label="Experimentos"
-          value={`${stats.attemptsUsed} / ${config.maxAttempts}`}
-          icon="🔬"
-        />
-        <ResultStatCard label="Duración" value={durationDisplay} icon="⏱️" />
-      </div>
-
-      {/* Detailed results */}
-      <div className="glass p-5 sm:p-6">
-        <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider mb-4">
-          Detalles de la partida
-        </h3>
-        <div className="space-y-3">
-          <DetailRow
-            label="Función"
-            value={functionMeta?.name ?? config.benchmarkFunction}
-          />
-          <DetailRow
-            label="Objetivo"
-            value={
-              config.objective === "maximize" ? "📈 Maximizar" : "📉 Minimizar"
-            }
-          />
-          <DetailRow
-            label="Modo"
-            value={
-              config.mode === "manual"
-                ? "🖐️ Manual"
-                : "🤖 Guiado por Dxter"
-            }
-          />
-          <DetailRow
-            label="Tamaño del mapa"
-            value={`${config.gridSize}×${config.gridSize} (${config.gridSize * config.gridSize} celdas)`}
-          />
-          <DetailRow
-            label="Posición mejor valor"
-            value={
-              stats.bestPosition
-                ? `(${stats.bestPosition.row}, ${stats.bestPosition.col})`
-                : "—"
-            }
-          />
-          <DetailRow
-            label="Posición óptimo real"
-            value={`(${stats.optimumPosition.row}, ${stats.optimumPosition.col})`}
-          />
-          {distanceToOptimum !== null && (
-            <DetailRow
-              label="Distancia al óptimo"
-              value={`${distanceToOptimum.toFixed(1)} celdas`}
-            />
-          )}
-          <DetailRow
-            label="Eficiencia"
-            value={`${((stats.score / Math.max(1, stats.attemptsUsed)) * stats.attemptsUsed / config.maxAttempts * 100).toFixed(1)}%`}
-          />
-        </div>
-      </div>
-
-      {/* Progress history chart */}
-      {stats.revealHistory.length > 1 && (
-        <div className="glass p-5 sm:p-6">
-          <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider mb-4">
-            Evolución del mejor valor
-          </h3>
-          <ResultProgressChart history={stats.revealHistory} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Grid Tab – Full revealed grid
-// ---------------------------------------------------------------------------
-
-function GridTab({
-  grid,
-  gridSize,
-  showFullGrid,
-  onToggleFullGrid,
-  stats,
-}: {
-  grid: Cell[][];
-  gridSize: number;
-  showFullGrid: boolean;
-  onToggleFullGrid: () => void;
-  stats: ReturnType<typeof import("@/types/game").createEmptyStats>;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || grid.length === 0) return;
-
-    const maxSize = 600;
-    const cellSize = Math.max(2, Math.floor(maxSize / gridSize));
-    const size = cellSize * gridSize;
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Draw all cells
-    for (let row = 0; row < gridSize; row++) {
-      for (let col = 0; col < gridSize; col++) {
-        const cell = grid[row]?.[col];
-        if (!cell) continue;
-
-        ctx.fillStyle = valueToColor(cell.normalizedValue);
-        ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
-
-        // Grid lines for larger cells
-        if (cellSize > 6) {
-          ctx.strokeStyle = "rgba(255,255,255,0.05)";
-          ctx.lineWidth = 0.5;
-          ctx.strokeRect(
-            col * cellSize,
-            row * cellSize,
-            cellSize,
-            cellSize
-          );
-        }
-      }
-    }
-
-    // Draw revealed cells markers
-    for (let row = 0; row < gridSize; row++) {
-      for (let col = 0; col < gridSize; col++) {
-        const cell = grid[row]?.[col];
-        if (!cell || cell.revealOrder === null) continue;
-
-        // Small white dot for revealed cells
-        ctx.fillStyle = "rgba(255,255,255,0.8)";
-        ctx.beginPath();
-        ctx.arc(
-          col * cellSize + cellSize / 2,
-          row * cellSize + cellSize / 2,
-          Math.max(1.5, cellSize / 6),
-          0,
-          2 * Math.PI
-        );
-        ctx.fill();
-      }
-    }
-
-    // Draw best found marker
-    if (stats.bestPosition) {
-      const { row, col } = stats.bestPosition;
-      ctx.strokeStyle = "#fbbf24";
-      ctx.lineWidth = 3;
-      ctx.strokeRect(
-        col * cellSize - 2,
-        row * cellSize - 2,
-        cellSize + 4,
-        cellSize + 4
-      );
-
-      // Star icon
-      ctx.fillStyle = "#fbbf24";
-      ctx.font = `${Math.max(10, cellSize)}px serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(
-        "⭐",
-        col * cellSize + cellSize / 2,
-        row * cellSize + cellSize / 2
-      );
-    }
-
-    // Draw optimum marker
-    if (stats.optimumPosition) {
-      const { row, col } = stats.optimumPosition;
-      ctx.strokeStyle = "#ff1493";
-      ctx.lineWidth = 3;
-      ctx.strokeRect(
-        col * cellSize - 2,
-        row * cellSize - 2,
-        cellSize + 4,
-        cellSize + 4
-      );
-
-      ctx.fillStyle = "#ff1493";
-      ctx.font = `${Math.max(10, cellSize)}px serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(
-        "💎",
-        col * cellSize + cellSize / 2,
-        row * cellSize + cellSize / 2
-      );
-    }
-  }, [grid, gridSize, stats]);
-
-  return (
-    <div className="space-y-4">
-      <div className="glass p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">
-            Mapa completo revelado
-          </h3>
-          <div className="flex items-center gap-4 text-xs text-slate-500">
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
-              Mejor encontrado
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded-full bg-pink-500 inline-block" />
-              Óptimo real
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-white inline-block" />
-              Explorados
-            </span>
+        {/* Trophy Icon */}
+        <div className="flex justify-center mb-5">
+          <div className="w-20 h-20 rounded-full bg-[#177B7D]/10 flex items-center justify-center">
+            <svg
+              className="w-10 h-10 text-[#177B7D]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-2.752 0m0 0a6.726 6.726 0 01-2.749-1.35"
+              />
+            </svg>
           </div>
         </div>
 
-        <div className="flex justify-center">
-          <canvas
-            ref={canvasRef}
-            className="rounded-lg shadow-lg max-w-full"
-            style={{
-              imageRendering: "pixelated",
-              maxHeight: "70vh",
-              objectFit: "contain",
-            }}
-          />
+        {/* Headline */}
+        <div className="text-center mb-8">
+          <h2 className="text-2xl sm:text-3xl font-display font-bold text-slate-800 mb-2">
+            {foundOptimum
+              ? "You found the global maximum!"
+              : `You reached ${stats.bestValueFound} of ${stats.optimumValue}`}
+          </h2>
+
+          {/* Tags */}
+          <div className="flex items-center justify-center gap-2 flex-wrap text-sm text-slate-500">
+            <span className="px-2.5 py-0.5 rounded-full bg-[#177B7D] text-white text-xs font-semibold">
+              {preset.label}
+            </span>
+            <span className="text-slate-400">&middot;</span>
+            <span>
+              {config.gridSize} &times; {config.gridSize} grid
+            </span>
+            <span className="text-slate-400">&middot;</span>
+            <span>Goal: Find the global maximum within budget</span>
+          </div>
         </div>
 
-        {/* Color scale legend */}
-        <div className="mt-4 flex items-center gap-2">
-          <span className="text-xs text-slate-400">Bajo</span>
-          <div
-            className="flex-1 h-3 rounded-full"
-            style={{
-              background:
-                "linear-gradient(90deg, rgb(30,58,95), rgb(37,99,235), rgb(34,197,94), rgb(234,179,8), rgb(239,68,68), rgb(255,20,147))",
-            }}
-          />
-          <span className="text-xs text-slate-400">Alto</span>
-        </div>
-      </div>
-    </div>
-  );
-}
+        {/* ── Stats Row: Your Run + Archetype ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5 mb-8">
+          {/* Your Run Card */}
+          <div className="glass p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-display font-bold text-slate-800">
+                Your Run
+              </h3>
+              <span
+                className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                  foundOptimum
+                    ? "bg-green-100 text-green-700"
+                    : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                {foundOptimum ? "Success" : "Incomplete"}
+              </span>
+            </div>
 
-// ---------------------------------------------------------------------------
-// Comparison Tab
-// ---------------------------------------------------------------------------
+            {/* Big stats */}
+            <div className="grid grid-cols-3 gap-6 mb-5">
+              <div className="text-center">
+                <p className="text-xs text-slate-400 mb-1">Best Value Found</p>
+                <p className="text-4xl font-display font-bold text-[#177B7D]">
+                  {stats.bestValueFound}
+                </p>
+                {foundOptimum && (
+                  <p className="text-xs text-[#177B7D] font-medium mt-1 flex items-center justify-center gap-1">
+                    Global Maximum
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M4.5 12.75l6 6 9-13.5"
+                      />
+                    </svg>
+                  </p>
+                )}
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-slate-400 mb-1">Total Iterations</p>
+                <p className="text-4xl font-display font-bold text-slate-800">
+                  {stats.iterations}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-slate-400 mb-1">Budget Spent</p>
+                <p className="text-4xl font-display font-bold text-slate-800">
+                  ${stats.budgetSpent}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  of ${config.budget}
+                </p>
+              </div>
+            </div>
 
-function ComparisonTab({
-  comparison,
-  canCompare,
-}: {
-  comparison: ModeComparison;
-  canCompare: boolean;
-}) {
-  if (!comparison.manual && !comparison.guided) {
-    return (
-      <div className="glass p-8 text-center">
-        <p className="text-slate-500 text-sm">
-          Juega en ambos modos (Manual y Guiado) con la misma configuración
-          para ver la comparativa.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {canCompare ? (
-        <>
-          {/* Side by side comparison */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <ComparisonCard
-              result={comparison.manual!}
-              label="🖐️ Manual"
-              color="amber"
-            />
-            <ComparisonCard
-              result={comparison.guided!}
-              label="🤖 Dxter"
-              color="accent"
-            />
+            {/* Divider */}
+            <div className="border-t border-[#e5e7eb] pt-4 flex items-center gap-8">
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <svg
+                  className="w-4 h-4 text-[#177B7D]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18"
+                  />
+                </svg>
+                <span>DxTER Used</span>
+                <span className="font-semibold">
+                  {stats.dxterUsed ? "Yes" : "No"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <svg
+                  className="w-4 h-4 text-slate-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span>Time Taken</span>
+                <span className="font-semibold">{durationDisplay}</span>
+              </div>
+            </div>
           </div>
 
-          {/* Winner banner */}
-          <WinnerBanner
-            manual={comparison.manual!}
-            guided={comparison.guided!}
-          />
-
-          {/* Comparison chart */}
-          <div className="glass p-5 sm:p-6">
-            <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider mb-4">
-              Evolución comparada
+          {/* Archetype Card */}
+          <div className="archetype-card flex flex-col items-center justify-center">
+            {/* Avatar / Emoji */}
+            <div className="text-5xl mb-3">{archetype.emoji}</div>
+            <h3 className="text-xl font-display font-bold text-white mb-1">
+              {archetype.title}
             </h3>
-            <ComparisonChart
-              manual={comparison.manual!}
-              guided={comparison.guided!}
-            />
-          </div>
-        </>
-      ) : (
-        <div className="space-y-4">
-          {comparison.manual && (
-            <ComparisonCard
-              result={comparison.manual}
-              label="🖐️ Manual"
-              color="amber"
-            />
-          )}
-          {comparison.guided && (
-            <ComparisonCard
-              result={comparison.guided}
-              label="🤖 Dxter"
-              color="accent"
-            />
-          )}
-          <div className="glass p-6 text-center">
-            <p className="text-slate-500 text-sm mb-2">
-              {comparison.manual
-                ? "¡Ahora prueba el modo Guiado por Dxter para comparar!"
-                : "¡Ahora prueba el modo Manual para comparar!"}
+            <p className="text-sm text-white/70 mb-5 text-center leading-relaxed">
+              {archetype.description}
             </p>
-            <p className="text-xs text-slate-400">
-              Juega la misma función en el otro modo para ver quién gana.
+
+            {/* Efficiency Score */}
+            <div className="bg-white/15 rounded-xl px-6 py-3 w-full text-center">
+              <p className="text-xs text-white/60 mb-0.5">Efficiency Score</p>
+              <p className="text-4xl font-display font-bold text-white">
+                {efficiencyScore}%
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Board Overview (Heatmap) ── */}
+        {boardData && (
+          <div className="glass p-6 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-display font-bold text-slate-800">
+                Board Overview
+              </h3>
+              <div className="flex items-center gap-4 text-xs text-slate-500">
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block w-3 h-3 rounded-sm border-2 border-white"
+                    style={{ boxShadow: "0 0 0 1.5px #177B7D" }}
+                  />
+                  Your clicks
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-3 h-3 rounded-full bg-yellow-400 border border-yellow-500" />
+                  Global max
+                </span>
+              </div>
+            </div>
+
+            {/* Color scale legend */}
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-xs text-slate-400">Low</span>
+              <div
+                className="flex-1 h-3 rounded-full overflow-hidden"
+                style={{
+                  background:
+                    "linear-gradient(to right, rgb(30,58,95), rgb(37,99,235), rgb(34,197,94), rgb(234,179,8), rgb(239,68,68), rgb(255,20,147))",
+                }}
+              />
+              <span className="text-xs text-slate-400">High</span>
+            </div>
+
+            {/* Grid */}
+            <div className="flex justify-center">
+              <div
+                className="inline-grid gap-[1px] bg-slate-200 rounded-lg overflow-hidden p-[1px]"
+                style={{
+                  gridTemplateColumns: `repeat(${boardData.gridSize}, 1fr)`,
+                }}
+              >
+                {boardData.grid.flatMap((row) =>
+                  row.map((cell) => {
+                    const isPlayerRevealed = cell.revealOrder !== null;
+                    const isOptimum =
+                      cell.row === boardData.optimumPosition.row &&
+                      cell.col === boardData.optimumPosition.col;
+                    const isBest =
+                      boardData.bestPosition !== null &&
+                      cell.row === boardData.bestPosition.row &&
+                      cell.col === boardData.bestPosition.col;
+
+                    // Compute cell size based on grid size
+                    const cellSize =
+                      boardData.gridSize <= 8
+                        ? 36
+                        : boardData.gridSize <= 12
+                          ? 28
+                          : 22;
+
+                    const fontSize =
+                      boardData.gridSize <= 8
+                        ? 10
+                        : boardData.gridSize <= 12
+                          ? 8
+                          : 7;
+
+                    return (
+                      <div
+                        key={`${cell.row}-${cell.col}`}
+                        className="relative flex items-center justify-center"
+                        style={{
+                          width: cellSize,
+                          height: cellSize,
+                          backgroundColor: valueToColor(cell.normalizedValue),
+                          boxShadow: isPlayerRevealed
+                            ? "inset 0 0 0 2px rgba(255,255,255,0.85)"
+                            : undefined,
+                        }}
+                        title={`(${cell.row}, ${cell.col}) = ${cell.value}${isOptimum ? " ★ Global Max" : ""}${isPlayerRevealed ? ` · Click #${cell.revealOrder}` : ""}`}
+                      >
+                        {/* Optimum star marker */}
+                        {isOptimum && (
+                          <span
+                            className="absolute z-20 text-yellow-300 drop-shadow-md"
+                            style={{
+                              fontSize: cellSize * 0.65,
+                              lineHeight: 1,
+                              top: "50%",
+                              left: "50%",
+                              transform: "translate(-50%, -50%)",
+                              textShadow:
+                                "0 0 3px rgba(0,0,0,0.5), 0 0 6px rgba(234,179,8,0.6)",
+                            }}
+                          >
+                            ★
+                          </span>
+                        )}
+
+                        {/* Player revealed indicator: show order number */}
+                        {isPlayerRevealed && !isOptimum && (
+                          <span
+                            className="relative z-10 font-bold text-white"
+                            style={{
+                              fontSize,
+                              textShadow: "0 0 3px rgba(0,0,0,0.6)",
+                            }}
+                          >
+                            {cell.revealOrder}
+                          </span>
+                        )}
+
+                        {/* If it's both optimum and player-revealed, show the order below */}
+                        {isPlayerRevealed && isOptimum && (
+                          <span
+                            className="absolute bottom-0 right-0 z-30 font-bold text-white bg-black/40 rounded-tl px-0.5"
+                            style={{ fontSize: fontSize - 1, lineHeight: 1.2 }}
+                          >
+                            {cell.revealOrder}
+                          </span>
+                        )}
+
+                        {/* Best found indicator (ring) — only if different from optimum */}
+                        {isBest && !isOptimum && (
+                          <span
+                            className="absolute inset-0 z-10 rounded-sm"
+                            style={{
+                              boxShadow:
+                                "inset 0 0 0 2px #177B7D, 0 0 4px rgba(23,123,125,0.5)",
+                            }}
+                          />
+                        )}
+                      </div>
+                    );
+                  }),
+                )}
+              </div>
+            </div>
+
+            {/* Grid info */}
+            <div className="mt-4 flex items-center justify-center gap-6 text-xs text-slate-400">
+              <span>
+                {boardData.playerRevealed.length} of{" "}
+                {boardData.gridSize * boardData.gridSize} cells explored (
+                {Math.round(
+                  (boardData.playerRevealed.length /
+                    (boardData.gridSize * boardData.gridSize)) *
+                    100,
+                )}
+                %)
+              </span>
+              <span>
+                Global max at ({boardData.optimumPosition.row},{" "}
+                {boardData.optimumPosition.col})
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* ── How You Compare ── */}
+        <div className="glass p-6 mb-8">
+          <h3 className="text-lg font-display font-bold text-slate-800 mb-5">
+            How You Compare
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {/* Your run bar */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-slate-700">
+                  Your Run (with DxTER)
+                </span>
+                <span className="text-sm text-slate-500">
+                  {stats.iterations} iterations
+                </span>
+              </div>
+              <div className="w-full h-9 bg-[#e5e7eb] rounded-lg overflow-hidden">
+                <div
+                  className="comparison-bar bg-[#177B7D]"
+                  style={{
+                    width: `${Math.min(100, Math.max(15, (stats.iterations / Math.max(stats.iterations, typicalIterations)) * 100))}%`,
+                    transition: animateIn ? "width 1s ease-out 0.5s" : "none",
+                  }}
+                >
+                  {stats.iterations}
+                </div>
+              </div>
+            </div>
+
+            {/* Typical run bar */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-slate-700">
+                  Typical Optimized Run
+                </span>
+                <span className="text-sm text-slate-500">
+                  {typicalIterations} iterations
+                </span>
+              </div>
+              <div className="w-full h-9 bg-[#e5e7eb] rounded-lg overflow-hidden">
+                <div
+                  className="comparison-bar bg-slate-500"
+                  style={{
+                    width: `${Math.min(100, Math.max(15, (typicalIterations / Math.max(stats.iterations, typicalIterations)) * 100))}%`,
+                    transition: animateIn ? "width 1s ease-out 0.7s" : "none",
+                  }}
+                >
+                  {typicalIterations}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Insight message */}
+          <div className="mt-5 flex items-start gap-2 bg-[#177B7D]/5 border border-[#177B7D]/10 rounded-lg p-3">
+            <svg
+              className="w-4 h-4 text-[#177B7D] shrink-0 mt-0.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18"
+              />
+            </svg>
+            <p className="text-sm text-slate-600">
+              Smart experimentation with DxTER helps reach better results with
+              fewer attempts
             </p>
           </div>
         </div>
-      )}
-    </div>
-  );
-}
 
-// ---------------------------------------------------------------------------
-// ComparisonCard
-// ---------------------------------------------------------------------------
+        {/* ── Leaderboard ── */}
+        <div className="glass p-6 mb-8">
+          <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-xl">🏆</span>
+              <h3 className="text-lg font-display font-bold text-slate-800">
+                Leaderboard
+              </h3>
+            </div>
+            {/* Tabs */}
+            <div className="flex gap-2">
+              {(["all", ...DIFFICULTY_TABS] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setScoreTab(t)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                    scoreTab === t
+                      ? "bg-[#177B7D] text-white"
+                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                  }`}
+                >
+                  {t === "all" ? "All" : DIFFICULTY_PRESETS[t].label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-function ComparisonCard({
-  result,
-  label,
-  color,
-}: {
-  result: GameResult;
-  label: string;
-  color: "amber" | "accent";
-}) {
-  const borderClass =
-    color === "amber" ? "border-amber-500/40" : "border-accent/40";
-  const textClass =
-    color === "amber" ? "text-amber-400" : "text-dxter-600";
+          {highScores.length === 0 ? (
+            <div className="py-10 text-center text-slate-400 text-sm">
+              <p className="text-3xl mb-2">🎮</p>
+              <p>No scores yet for this category.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-slate-400 uppercase tracking-wider">
+                    <th className="pb-2 pr-2">#</th>
+                    <th className="pb-2 pr-2">Player</th>
+                    <th className="pb-2 pr-2">Difficulty</th>
+                    <th className="pb-2 pr-2 text-right">Best</th>
+                    <th className="pb-2 pr-2 text-right">Efficiency</th>
+                    <th className="pb-2 pr-2 text-right">Iterations</th>
+                    <th className="pb-2 text-right">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {highScores.slice(0, 15).map((entry, i) => {
+                    const isCurrentGame =
+                      lastSaved !== null && entry.id === lastSaved.id;
 
-  return (
-    <div className={`glass p-5 ${borderClass}`}>
-      <h4 className={`text-base font-display font-semibold mb-3 ${textClass}`}>
-        {label}
-      </h4>
-      <div className="space-y-2">
-        <ComparisonRow
-          label="Puntuación"
-          value={`${result.score.toFixed(1)}%`}
-        />
-        <ComparisonRow
-          label="Mejor valor"
-          value={
-            isFinite(result.stats.bestValueFound)
-              ? result.stats.bestValueFound.toFixed(4)
-              : "—"
-          }
-        />
-        <ComparisonRow
-          label="Experimentos"
-          value={`${result.stats.attemptsUsed}`}
-        />
-        <ComparisonRow
-          label="Duración"
-          value={`${Math.round(result.durationMs / 1000)}s`}
-        />
+                    return (
+                      <tr
+                        key={entry.id}
+                        className={`border-t border-slate-50 transition-colors ${
+                          isCurrentGame
+                            ? "bg-[#177B7D]/5 ring-1 ring-[#177B7D]/20 rounded"
+                            : "hover:bg-slate-50/50"
+                        }`}
+                      >
+                        <td className="py-2.5 pr-2 text-slate-400 font-medium">
+                          {i < 3 ? (
+                            <span className="text-base">
+                              {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}
+                            </span>
+                          ) : (
+                            i + 1
+                          )}
+                        </td>
+                        <td className="py-2.5 pr-2 font-medium text-slate-700 truncate max-w-[120px]">
+                          {entry.playerName}
+                          {isCurrentGame && (
+                            <span className="ml-1.5 text-[10px] font-semibold text-[#177B7D] bg-[#177B7D]/10 px-1.5 py-0.5 rounded">
+                              YOU
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 pr-2">
+                          <span
+                            className={`inline-block px-2 py-0.5 text-[10px] font-semibold rounded ${
+                              entry.difficulty === "easy"
+                                ? "bg-green-100 text-green-700"
+                                : entry.difficulty === "medium"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-red-100 text-red-700"
+                            }`}
+                          >
+                            {DIFFICULTY_PRESETS[entry.difficulty].label}
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-2 text-right">
+                          <span className="font-semibold text-slate-700">
+                            {entry.bestValue}
+                          </span>
+                          {entry.foundOptimum && (
+                            <span className="ml-1 text-[#177B7D]">✓</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 pr-2 text-right font-semibold text-[#177B7D]">
+                          {entry.efficiencyScore}%
+                        </td>
+                        <td className="py-2.5 pr-2 text-right text-slate-500">
+                          {entry.iterations}
+                        </td>
+                        <td className="py-2.5 text-right text-slate-400 text-xs">
+                          {formatDate(entry.timestamp)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── Action Buttons ── */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <button
+            onClick={restartGame}
+            className="group flex items-center gap-2 px-8 py-3.5 bg-[#177B7D] hover:bg-[#155e5f] text-white font-semibold text-sm rounded-xl shadow-lg shadow-[#177B7D]/20 hover:shadow-[#177B7D]/40 transition-all duration-200 cursor-pointer"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M20.016 4.657v4.992"
+              />
+            </svg>
+            Play Again
+          </button>
+
+          <button
+            onClick={goToLanding}
+            className="px-6 py-3 border border-[#e5e7eb] text-slate-600 font-medium text-sm rounded-xl hover:bg-white hover:border-slate-300 transition-all duration-200 cursor-pointer flex items-center gap-2"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+              />
+            </svg>
+            Back to Menu
+          </button>
+        </div>
       </div>
     </div>
   );
-}
-
-function ComparisonRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-slate-500">{label}</span>
-      <span className="text-slate-700 font-mono tabular-nums">{value}</span>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// WinnerBanner
-// ---------------------------------------------------------------------------
-
-function WinnerBanner({
-  manual,
-  guided,
-}: {
-  manual: GameResult;
-  guided: GameResult;
-}) {
-  const manualWins = manual.score > guided.score;
-  const tie = Math.abs(manual.score - guided.score) < 0.1;
-  const difference = Math.abs(manual.score - guided.score);
-
-  if (tie) {
-    return (
-      <div className="glass p-5 text-center border-dxter-500/30">
-        <p className="text-lg font-display font-semibold text-slate-700 mb-1">
-          🤝 ¡Empate!
-        </p>
-        <p className="text-sm text-slate-500">
-          Ambos modos obtuvieron resultados prácticamente iguales.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={`glass p-5 text-center ${
-        manualWins
-          ? "border-amber-500/40 bg-amber-500/5"
-          : "border-accent/40 bg-accent/5"
-      }`}
-    >
-      <p className="text-lg font-display font-semibold text-slate-700 mb-1">
-        {manualWins ? "🖐️ ¡Ganó el modo Manual!" : "🤖 ¡Ganó Dxter!"}
-      </p>
-      <p className="text-sm text-slate-500">
-        {manualWins
-          ? `Tu intuición superó a Dxter por ${difference.toFixed(1)} puntos. ¡Impresionante!`
-          : `Dxter encontró un resultado ${difference.toFixed(1)} puntos mejor. ¡La optimización bayesiana funciona!`}
-      </p>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ComparisonChart – Overlapping progress lines
-// ---------------------------------------------------------------------------
-
-function ComparisonChart({
-  manual,
-  guided,
-}: {
-  manual: GameResult;
-  guided: GameResult;
-}) {
-  const width = 500;
-  const height = 120;
-  const padding = { top: 10, right: 10, bottom: 24, left: 10 };
-  const chartWidth = width - padding.left - padding.right;
-  const chartHeight = height - padding.top - padding.bottom;
-
-  const allValues = [
-    ...manual.stats.revealHistory.map((h) => h.bestSoFar),
-    ...guided.stats.revealHistory.map((h) => h.bestSoFar),
-  ];
-  const min = Math.min(...allValues);
-  const max = Math.max(...allValues);
-  const range = max - min || 1;
-
-  const maxSteps = Math.max(
-    manual.stats.revealHistory.length,
-    guided.stats.revealHistory.length
-  );
-
-  function makePolyline(
-    history: Array<{ step: number; bestSoFar: number }>
-  ): string {
-    if (history.length === 0) return "";
-    return history
-      .map((h) => {
-        const x =
-          padding.left +
-          ((h.step - 1) / Math.max(1, maxSteps - 1)) * chartWidth;
-        const y =
-          padding.top +
-          chartHeight -
-          ((h.bestSoFar - min) / range) * chartHeight;
-        return `${x},${y}`;
-      })
-      .join(" ");
-  }
-
-  const manualLine = makePolyline(manual.stats.revealHistory);
-  const guidedLine = makePolyline(guided.stats.revealHistory);
-
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full" preserveAspectRatio="xMidYMid meet">
-      {/* Grid lines */}
-      {[0, 0.25, 0.5, 0.75, 1].map((frac) => (
-        <line
-          key={frac}
-          x1={padding.left}
-          y1={padding.top + chartHeight * (1 - frac)}
-          x2={width - padding.right}
-          y2={padding.top + chartHeight * (1 - frac)}
-          stroke="#e2e8f0"
-          strokeWidth="0.5"
-        />
-      ))}
-
-      {/* Manual line */}
-      {manualLine && (
-        <polyline
-          points={manualLine}
-          fill="none"
-          stroke="#fbbf24"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity="0.8"
-        />
-      )}
-
-      {/* Guided line */}
-      {guidedLine && (
-        <polyline
-          points={guidedLine}
-          fill="none"
-          stroke="var(--color-accent)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity="0.8"
-        />
-      )}
-
-      {/* Legend */}
-      <circle cx={width - 120} cy={height - 8} r="4" fill="#fbbf24" />
-      <text
-        x={width - 112}
-        y={height - 4}
-        fill="var(--color-surface-400)"
-        fontSize="10"
-      >
-        Manual
-      </text>
-      <circle cx={width - 55} cy={height - 8} r="4" fill="var(--color-accent)" />
-      <text
-        x={width - 47}
-        y={height - 4}
-        fill="var(--color-surface-400)"
-        fontSize="10"
-      >
-        Dxter
-      </text>
-    </svg>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ResultProgressChart – Larger chart for the results screen
-// ---------------------------------------------------------------------------
-
-function ResultProgressChart({
-  history,
-}: {
-  history: Array<{ step: number; bestSoFar: number; value: number }>;
-}) {
-  if (history.length === 0) return null;
-
-  const width = 500;
-  const height = 140;
-  const padding = { top: 10, right: 10, bottom: 24, left: 10 };
-  const chartWidth = width - padding.left - padding.right;
-  const chartHeight = height - padding.top - padding.bottom;
-
-  const bestValues = history.map((h) => h.bestSoFar);
-  const min = Math.min(...bestValues);
-  const max = Math.max(...bestValues);
-  const range = max - min || 1;
-
-  const polylinePoints = history
-    .map((h) => {
-      const x =
-        padding.left +
-        ((h.step - 1) / Math.max(1, history.length - 1)) * chartWidth;
-      const y =
-        padding.top + chartHeight - ((h.bestSoFar - min) / range) * chartHeight;
-      return `${x},${y}`;
-    })
-    .join(" ");
-
-  // Area fill
-  const firstX = padding.left;
-  const lastX =
-    padding.left +
-    ((history.length - 1) / Math.max(1, history.length - 1)) * chartWidth;
-  const bottomY = padding.top + chartHeight;
-  const areaPoints = `${firstX},${bottomY} ${polylinePoints} ${lastX},${bottomY}`;
-
-  // Individual point values (each click)
-  const pointDots = history.map((h) => {
-    const x =
-      padding.left +
-      ((h.step - 1) / Math.max(1, history.length - 1)) * chartWidth;
-    const y =
-      padding.top + chartHeight - ((h.value - min) / range) * chartHeight;
-    return { x, y, value: h.value, step: h.step };
-  });
-
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full" preserveAspectRatio="xMidYMid meet">
-      <defs>
-        <linearGradient id="resultChartGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop
-            offset="0%"
-            stopColor="var(--color-dxter-400)"
-            stopOpacity="0.25"
-          />
-          <stop
-            offset="100%"
-            stopColor="var(--color-dxter-400)"
-            stopOpacity="0"
-          />
-        </linearGradient>
-      </defs>
-
-      {/* Grid lines */}
-      {[0, 0.25, 0.5, 0.75, 1].map((frac) => (
-        <line
-          key={frac}
-          x1={padding.left}
-          y1={padding.top + chartHeight * (1 - frac)}
-          x2={width - padding.right}
-          y2={padding.top + chartHeight * (1 - frac)}
-          stroke="#e2e8f0"
-          strokeWidth="0.5"
-        />
-      ))}
-
-      {/* Area fill */}
-      <polygon points={areaPoints} fill="url(#resultChartGradient)" />
-
-      {/* Best-so-far line */}
-      <polyline
-        points={polylinePoints}
-        fill="none"
-        stroke="var(--color-dxter-400)"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Individual value dots */}
-      {pointDots.map((p, i) => (
-        <circle
-          key={i}
-          cx={p.x}
-          cy={p.y}
-          r="2.5"
-          fill="var(--color-surface-400)"
-          opacity="0.5"
-        />
-      ))}
-
-      {/* Last point highlight */}
-      {pointDots.length > 0 && (
-        <circle
-          cx={pointDots[pointDots.length - 1]!.x}
-          cy={
-            padding.top +
-            chartHeight -
-            ((bestValues[bestValues.length - 1]! - min) / range) * chartHeight
-          }
-          r="4"
-          fill="var(--color-dxter-300)"
-          stroke="var(--color-surface-900)"
-          strokeWidth="2"
-        />
-      )}
-
-      {/* Axis labels */}
-      <text
-        x={padding.left}
-        y={height - 4}
-        fill="var(--color-surface-400)"
-        fontSize="10"
-      >
-        Paso 1
-      </text>
-      <text
-        x={width - padding.right}
-        y={height - 4}
-        fill="var(--color-surface-400)"
-        fontSize="10"
-        textAnchor="end"
-      >
-        Paso {history.length}
-      </text>
-    </svg>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Helper Components
-// ---------------------------------------------------------------------------
-
-function ResultStatCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon: string;
-}) {
-  return (
-    <div className="glass p-4 flex flex-col gap-1.5">
-      <div className="flex items-center gap-1.5 text-xs text-slate-500">
-        <span>{icon}</span>
-        <span>{label}</span>
-      </div>
-      <span className="text-base sm:text-lg font-mono font-bold tabular-nums text-slate-800 truncate">
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-slate-200 last:border-b-0">
-      <span className="text-sm text-slate-500">{label}</span>
-      <span className="text-sm font-medium text-slate-700">{value}</span>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Score Tier Helper
-// ---------------------------------------------------------------------------
-
-interface ScoreTierInfo {
-  emoji: string;
-  title: string;
-  message: string;
-}
-
-function getScoreTier(score: number): ScoreTierInfo {
-  if (score >= 99) {
-    return {
-      emoji: "🏆",
-      title: "¡Perfecto!",
-      message:
-        "Has encontrado el óptimo global exacto. ¡Eres un maestro de la optimización!",
-    };
-  }
-  if (score >= 90) {
-    return {
-      emoji: "🥇",
-      title: "¡Excelente!",
-      message:
-        "Estuviste muy cerca del óptimo. Un resultado digno de un investigador experto.",
-    };
-  }
-  if (score >= 75) {
-    return {
-      emoji: "🥈",
-      title: "¡Muy bien!",
-      message:
-        "Buen resultado. Encontraste una zona prometedora del espacio de búsqueda.",
-    };
-  }
-  if (score >= 50) {
-    return {
-      emoji: "🥉",
-      title: "Buen intento",
-      message:
-        "No está mal, pero hay margen de mejora. ¿Probaste el modo guiado por Dxter?",
-    };
-  }
-  if (score >= 25) {
-    return {
-      emoji: "🤔",
-      title: "Puede mejorar",
-      message:
-        "El óptimo estaba lejos de donde buscaste. La optimización bayesiana podría haberte guiado mejor.",
-    };
-  }
-  return {
-    emoji: "😅",
-    title: "¡A seguir intentando!",
-    message:
-      "El paisaje era complicado. Prueba con Dxter para ver cómo la optimización bayesiana marca la diferencia.",
-  };
 }

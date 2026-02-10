@@ -1,8 +1,9 @@
 // ---------------------------------------------------------------------------
-// BuscaÓptimos – Grid Logic Module
+// DxTER: The Optimization Game – Grid Logic Module
 // ---------------------------------------------------------------------------
 // Handles grid initialization, cell revealing, score calculation,
 // and all mutations on the game grid state.
+// Uses a budget-based system with maximize objective and 0-100 values.
 // ---------------------------------------------------------------------------
 
 import type {
@@ -14,7 +15,7 @@ import type {
   RevealEntry,
   ObjectiveDirection,
 } from "@/types/game";
-import { createEmptyStats } from "@/types/game";
+import { createEmptyStats, FLIP_COST, canAffordFlip } from "@/types/game";
 import {
   evaluateGrid,
   normalizeValue,
@@ -22,13 +23,58 @@ import {
 } from "@/lib/functions";
 
 // ---------------------------------------------------------------------------
+// Tile Color System (matching the mocks)
+// ---------------------------------------------------------------------------
+
+/** Color for tiles far from the best found value */
+export const COLOR_LOW = "#D1D5DB"; // gray
+/** Color for tiles close to the best found value */
+export const COLOR_CLOSE = "#7FC7C3"; // light teal
+/** Color for the best found value tile */
+export const COLOR_BEST = "#177B7D"; // DxTER teal
+/** Color for unflipped tiles */
+export const COLOR_UNFLIPPED = "#FFFFFF";
+
+/**
+ * Determine the tile background color based on its value relative to the
+ * current best found value.
+ *
+ * - Best found → dark DxTER teal (#177B7D)
+ * - Within 15% of best → light teal (#7FC7C3)
+ * - Everything else → gray (#D1D5DB)
+ */
+export function getTileColor(
+  cellValue: number,
+  bestFoundValue: number,
+  isBestFound: boolean,
+): string {
+  if (isBestFound) return COLOR_BEST;
+
+  // If no best found yet, everything is gray
+  if (!isFinite(bestFoundValue) || bestFoundValue <= 0) return COLOR_LOW;
+
+  const closenessThreshold = bestFoundValue * 0.85; // within 15% of best
+  if (cellValue >= closenessThreshold) return COLOR_CLOSE;
+
+  return COLOR_LOW;
+}
+
+/**
+ * Get the text color for a tile value depending on background.
+ */
+export function getTileTextColor(bgColor: string): string {
+  if (bgColor === COLOR_BEST) return "#FFFFFF";
+  return "#374151"; // slate-700
+}
+
+// ---------------------------------------------------------------------------
 // Grid Initialization
 // ---------------------------------------------------------------------------
 
 /**
  * Build the full Cell[][] grid for a given game configuration.
- * Evaluates the benchmark function at every position and determines
- * the global optimum based on the objective direction.
+ * Evaluates the benchmark function at every position, normalizes values
+ * to the 0-100 range, and determines the global optimum.
  */
 export function initializeGrid(config: GameConfig): {
   grid: Cell[][];
@@ -36,32 +82,23 @@ export function initializeGrid(config: GameConfig): {
   optimumPosition: GridPosition;
   optimumValue: number;
 } {
-  const { gridSize, benchmarkFunction, objective } = config;
+  const { gridSize, benchmarkFunction } = config;
   const evaluation = evaluateGrid(benchmarkFunction, gridSize);
   const { values, min, max } = evaluation;
 
-  // Determine the global optimum position based on objective direction
-  const optimumPosition: GridPosition =
-    objective === "maximize"
-      ? { ...evaluation.maxPosition }
-      : { ...evaluation.minPosition };
+  // Objective is always maximize in this version
+  const optimumPosition: GridPosition = { ...evaluation.maxPosition };
 
-  const optimumValue =
-    objective === "maximize" ? evaluation.max : evaluation.min;
-
-  // Build the Cell grid
+  // Build the Cell grid with values normalized to 0-100
   const grid: Cell[][] = [];
 
   for (let row = 0; row < gridSize; row++) {
     const rowCells: Cell[] = [];
     for (let col = 0; col < gridSize; col++) {
-      const value = values[row]![col]!;
-      // For "minimize" objectives, we invert the normalized value so that
-      // the best (lowest) values appear as "hot" on the heatmap.
-      let normalizedValue = normalizeValue(value, min, max);
-      if (objective === "minimize") {
-        normalizedValue = 1 - normalizedValue;
-      }
+      const rawValue = values[row]![col]!;
+      // Normalize to [0, 1] then scale to [0, 100]
+      const normalized = normalizeValue(rawValue, min, max);
+      const value = Math.round(normalized * 100);
 
       const isOptimum =
         row === optimumPosition.row && col === optimumPosition.col;
@@ -70,7 +107,8 @@ export function initializeGrid(config: GameConfig): {
         row,
         col,
         value,
-        normalizedValue,
+        rawValue,
+        normalizedValue: normalized,
         revealed: false,
         suggested: false,
         isOptimum,
@@ -80,6 +118,9 @@ export function initializeGrid(config: GameConfig): {
     }
     grid.push(rowCells);
   }
+
+  // The optimum value is always 100 (the max after normalization)
+  const optimumValue = 100;
 
   return { grid, evaluation, optimumPosition, optimumValue };
 }
@@ -96,14 +137,14 @@ export function createGameState(config: GameConfig): GameState {
 
   const stats: GameStats = {
     ...createEmptyStats(),
-    bestValueFound:
-      config.objective === "maximize" ? -Infinity : Infinity,
+    bestValueFound: -Infinity,
     optimumValue,
     optimumPosition,
   };
 
   return {
     phase: "playing",
+    playerName: "",
     config: { ...config },
     grid,
     stats,
@@ -120,9 +161,12 @@ export function createGameState(config: GameConfig): GameState {
 /**
  * Check whether a cell at the given position can be revealed.
  */
-export function canRevealCell(state: GameState, position: GridPosition): boolean {
+export function canRevealCell(
+  state: GameState,
+  position: GridPosition,
+): boolean {
   if (state.isFinished) return false;
-  if (state.stats.attemptsUsed >= state.config.maxAttempts) return false;
+  if (!canAffordFlip(state.config, state.stats)) return false;
 
   const cell = getCell(state.grid, position);
   if (!cell) return false;
@@ -133,11 +177,12 @@ export function canRevealCell(state: GameState, position: GridPosition): boolean
 
 /**
  * Reveal a cell at the given position and return the updated game state.
+ * Deducts FLIP_COST from the budget.
  * This is a pure function — it returns a new state object without mutating the input.
  */
 export function revealCell(
   state: GameState,
-  position: GridPosition
+  position: GridPosition,
 ): GameState {
   if (!canRevealCell(state, position)) {
     return state;
@@ -145,7 +190,8 @@ export function revealCell(
 
   const { row, col } = position;
   const cell = state.grid[row]![col]!;
-  const newAttemptsUsed = state.stats.attemptsUsed + 1;
+  const newIterations = state.stats.iterations + 1;
+  const newBudgetSpent = state.stats.budgetSpent + FLIP_COST;
 
   // Deep-clone the grid (shallow per row, deep per cell being modified)
   const newGrid = state.grid.map((r) => r.map((c) => ({ ...c })));
@@ -153,13 +199,13 @@ export function revealCell(
   // Reveal the target cell
   const targetCell = newGrid[row]![col]!;
   targetCell.revealed = true;
-  targetCell.revealOrder = newAttemptsUsed;
+  targetCell.revealOrder = newIterations;
 
-  // Determine if this is a new best value
+  // Determine if this is a new best value (maximize)
   const isBetter = isValueBetter(
     cell.value,
     state.stats.bestValueFound,
-    state.config.objective
+    "maximize",
   );
 
   let newBestValue = state.stats.bestValueFound;
@@ -171,7 +217,8 @@ export function revealCell(
 
     // Clear old best marker
     if (state.stats.bestPosition) {
-      const oldBest = newGrid[state.stats.bestPosition.row]![state.stats.bestPosition.col]!;
+      const oldBest =
+        newGrid[state.stats.bestPosition.row]![state.stats.bestPosition.col]!;
       oldBest.isBestFound = false;
     }
 
@@ -181,7 +228,7 @@ export function revealCell(
 
   // Build the reveal history entry
   const revealEntry: RevealEntry = {
-    step: newAttemptsUsed,
+    step: newIterations,
     position: { row, col },
     value: cell.value,
     bestSoFar: isBetter ? cell.value : state.stats.bestValueFound,
@@ -199,23 +246,35 @@ export function revealCell(
   const newScore = calculateScore(
     newBestValue,
     state.stats.optimumValue,
-    state.config.objective,
-    state.grid
+    "maximize",
+    state.grid,
   );
 
-  // Check if game is finished
-  const isFinished =
-    newAttemptsUsed >= state.config.maxAttempts ||
-    isOptimumFound(newBestValue, state.stats.optimumValue, state.config.objective);
+  // Check if game is finished:
+  // 1. Found the optimum (value === 100)
+  // 2. Cannot afford another flip
+  const foundOptimum = isOptimumFound(
+    newBestValue,
+    state.stats.optimumValue,
+    "maximize",
+  );
+
+  const newBudgetRemaining = state.config.budget - newBudgetSpent;
+  const cannotContinue = newBudgetRemaining < FLIP_COST;
+
+  const isFinished = foundOptimum || cannotContinue;
 
   const newStats: GameStats = {
-    attemptsUsed: newAttemptsUsed,
+    iterations: newIterations,
+    budgetSpent: newBudgetSpent,
     bestValueFound: newBestValue,
     bestPosition: newBestPosition,
     optimumValue: state.stats.optimumValue,
     optimumPosition: state.stats.optimumPosition,
     score: newScore,
     revealHistory: [...state.stats.revealHistory, revealEntry],
+    dxterUsed: state.stats.dxterUsed,
+    dxterAsks: state.stats.dxterAsks,
   };
 
   return {
@@ -224,21 +283,22 @@ export function revealCell(
     stats: newStats,
     isFinished,
     finishedAt: isFinished ? Date.now() : null,
-    phase: isFinished ? "results" : state.phase,
+    // Don't auto-transition to results; the GameBoard will show a modal
+    phase: state.phase,
   };
 }
 
 // ---------------------------------------------------------------------------
-// Suggestion Markers (for Guided Mode)
+// Suggestion Markers (for DxTER recommendations)
 // ---------------------------------------------------------------------------
 
 /**
- * Mark specific cells as "suggested" by Dxter.
+ * Mark specific cells as "suggested" by DxTER.
  * Returns a new grid with updated suggestion markers.
  */
 export function setSuggestions(
   grid: Cell[][],
-  suggestions: GridPosition[]
+  suggestions: GridPosition[],
 ): Cell[][] {
   const newGrid = grid.map((r) => r.map((c) => ({ ...c, suggested: false })));
 
@@ -257,7 +317,7 @@ export function setSuggestions(
  */
 export function clearSuggestions(grid: Cell[][]): Cell[][] {
   return grid.map((r) =>
-    r.map((c) => (c.suggested ? { ...c, suggested: false } : c))
+    r.map((c) => (c.suggested ? { ...c, suggested: false } : c)),
   );
 }
 
@@ -275,7 +335,7 @@ export function revealAllCells(grid: Cell[][]): Cell[][] {
       ...c,
       revealed: true,
       suggested: false,
-    }))
+    })),
   );
 }
 
@@ -286,17 +346,16 @@ export function revealAllCells(grid: Cell[][]): Cell[][] {
 /**
  * Calculate the player's score as a percentage [0, 100].
  *
- * Score = 100 means the player found the exact global optimum.
- * Score = 0 means the player's best is as far from the optimum as possible.
+ * Since values are already normalized to 0-100 and objective is maximize,
+ * the score is simply the best value found (clamped to [0, 100]).
  *
  * For maximization:  score = ((bestFound - worst) / (optimum - worst)) * 100
- * For minimization:  score = ((worst - bestFound) / (worst - optimum)) * 100
  */
 export function calculateScore(
   bestFound: number,
-  optimumValue: number,
+  _optimumValue: number,
   objective: ObjectiveDirection,
-  grid: Cell[][]
+  grid: Cell[][],
 ): number {
   // If no value has been found yet, score is 0
   if (!isFinite(bestFound)) return 0;
@@ -319,15 +378,15 @@ export function calculateScore(
 
 /**
  * Check whether the exact optimum has been found.
+ * Since we round values to integers and optimum is always 100,
+ * we check if bestFound === 100.
  */
 export function isOptimumFound(
   bestFound: number,
   optimumValue: number,
-  objective: ObjectiveDirection
+  _objective: ObjectiveDirection,
 ): boolean {
-  // Use a small relative tolerance for floating point comparison
-  const tolerance = 1e-10;
-  return Math.abs(bestFound - optimumValue) <= tolerance * (1 + Math.abs(optimumValue));
+  return bestFound >= optimumValue;
 }
 
 // ---------------------------------------------------------------------------
@@ -341,7 +400,7 @@ export function isOptimumFound(
 export function isValueBetter(
   newValue: number,
   currentBest: number,
-  objective: ObjectiveDirection
+  objective: ObjectiveDirection,
 ): boolean {
   if (objective === "maximize") {
     return newValue > currentBest;
@@ -420,7 +479,7 @@ export function getRevealedPercentage(grid: Cell[][]): number {
  */
 export function getNeighbors4(
   position: GridPosition,
-  gridSize: number
+  gridSize: number,
 ): GridPosition[] {
   const { row, col } = position;
   const neighbors: GridPosition[] = [];
@@ -438,7 +497,7 @@ export function getNeighbors4(
  */
 export function getNeighbors8(
   position: GridPosition,
-  gridSize: number
+  gridSize: number,
 ): GridPosition[] {
   const { row, col } = position;
   const neighbors: GridPosition[] = [];

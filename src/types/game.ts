@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// BuscaÓptimos – Core Game Types
+// DxTER: The Optimization Game – Core Game Types
 // ---------------------------------------------------------------------------
 
 /** Coordinates on the grid */
@@ -14,13 +14,15 @@ export interface Cell {
   row: number;
   /** Column index (0-based) */
   col: number;
-  /** The hidden value of the objective function at this position */
+  /** The hidden value of the objective function at this position (normalized 0-100) */
   value: number;
-  /** Normalized value [0, 1] for color mapping */
+  /** Raw value before normalization */
+  rawValue: number;
+  /** Normalized value [0, 1] for internal color mapping */
   normalizedValue: number;
-  /** Whether this cell has been revealed by the player */
+  /** Whether this cell has been revealed (flipped) by the player */
   revealed: boolean;
-  /** Whether Dxter is suggesting this cell as the next experiment */
+  /** Whether DxTER is suggesting this cell as the next experiment */
   suggested: boolean;
   /** Whether this cell holds the global optimum */
   isOptimum: boolean;
@@ -30,10 +32,7 @@ export interface Cell {
   revealOrder: number | null;
 }
 
-/** Game mode selection */
-export type GameMode = "manual" | "guided";
-
-/** Objective direction */
+/** Objective direction – always maximize in the new design */
 export type ObjectiveDirection = "maximize" | "minimize";
 
 /** Available benchmark functions */
@@ -52,33 +51,40 @@ export type Difficulty = "easy" | "medium" | "hard";
 /** Game phase / screen */
 export type GamePhase = "landing" | "setup" | "playing" | "results";
 
+/** Cost constants */
+export const FLIP_COST = 2;
+export const DXTER_COST = 5;
+export const DXTER_RECOMMENDATIONS = 3;
+
 /** Configuration for a game session */
 export interface GameConfig {
   /** Grid dimension (gridSize x gridSize) */
   gridSize: number;
-  /** Maximum number of clicks / experiments allowed */
-  maxAttempts: number;
+  /** Total budget in dollars */
+  budget: number;
   /** Which benchmark function is being used */
   benchmarkFunction: BenchmarkFunction;
-  /** Whether the player is trying to maximize or minimize */
+  /** The objective – always maximize */
   objective: ObjectiveDirection;
-  /** The game mode */
-  mode: GameMode;
   /** Difficulty preset that was selected */
   difficulty: Difficulty;
-  /** Number of suggestions Dxter shows at a time (guided mode) */
+  /** Number of suggestions DxTER shows at a time */
   suggestionsPerStep: number;
+  /** Whether advanced options were enabled (manual function selection) */
+  advancedMode: boolean;
 }
 
 /** Statistics tracked during a game session */
 export interface GameStats {
-  /** Number of cells revealed so far */
-  attemptsUsed: number;
-  /** The best (max or min depending on objective) value found so far */
+  /** Number of cells revealed (iterations / experiments) */
+  iterations: number;
+  /** Budget spent so far */
+  budgetSpent: number;
+  /** The best (maximum) value found so far (0-100 scale) */
   bestValueFound: number;
   /** Position of the best value found */
   bestPosition: GridPosition | null;
-  /** The actual global optimum value of the function on this grid */
+  /** The actual global optimum value of the function on this grid (0-100 scale) */
   optimumValue: number;
   /** Position of the global optimum */
   optimumPosition: GridPosition;
@@ -86,8 +92,10 @@ export interface GameStats {
   score: number;
   /** History of revealed values in order */
   revealHistory: RevealEntry[];
-  /** DxTER credits remaining for requesting hints (guided mode) */
-  dxterCredits: number;
+  /** Whether DxTER was used at least once */
+  dxterUsed: boolean;
+  /** Number of times DxTER was asked for suggestions */
+  dxterAsks: number;
 }
 
 /** A single entry in the reveal history */
@@ -96,11 +104,11 @@ export interface RevealEntry {
   step: number;
   /** Grid position that was revealed */
   position: GridPosition;
-  /** The value at this position */
+  /** The value at this position (0-100) */
   value: number;
   /** The best value found up to and including this step */
   bestSoFar: number;
-  /** Whether this cell was a Dxter suggestion */
+  /** Whether this cell was a DxTER suggestion */
   wasSuggested: boolean;
 }
 
@@ -108,13 +116,15 @@ export interface RevealEntry {
 export interface GameState {
   /** Current phase of the application */
   phase: GamePhase;
+  /** Player / session name */
+  playerName: string;
   /** Game configuration (set during setup) */
   config: GameConfig;
   /** The full grid of cells */
   grid: Cell[][];
   /** Live game statistics */
   stats: GameStats;
-  /** Whether the game is finished (attempts exhausted or optimum found) */
+  /** Whether the game is finished (budget exhausted or optimum found) */
   isFinished: boolean;
   /** Timestamp when the game started */
   startedAt: number | null;
@@ -157,11 +167,23 @@ export interface OptimizerConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Result / comparison types
+// Result types
 // ---------------------------------------------------------------------------
+
+/** Player archetype based on play style */
+export interface PlayerArchetype {
+  /** Emoji or icon id */
+  emoji: string;
+  /** Archetype name */
+  title: string;
+  /** Short description */
+  description: string;
+}
 
 /** Results for a completed game, used in the results screen */
 export interface GameResult {
+  /** Player / session name */
+  playerName: string;
   /** The config used */
   config: GameConfig;
   /** Final stats */
@@ -170,71 +192,206 @@ export interface GameResult {
   durationMs: number;
   /** Final score [0, 100] */
   score: number;
-}
-
-/** Side-by-side comparison when both modes are played */
-export interface ModeComparison {
-  manual: GameResult | null;
-  guided: GameResult | null;
+  /** Whether the global maximum was found */
+  foundOptimum: boolean;
+  /** Efficiency score as a percentage */
+  efficiencyScore: number;
+  /** Player archetype */
+  archetype: PlayerArchetype;
 }
 
 // ---------------------------------------------------------------------------
 // Difficulty presets
 // ---------------------------------------------------------------------------
 
-export const DIFFICULTY_PRESETS: Record<Difficulty, Pick<GameConfig, "gridSize" | "maxAttempts" | "suggestionsPerStep">> = {
+export interface DifficultyPreset {
+  gridSize: number;
+  budget: number;
+  suggestionsPerStep: number;
+  label: string;
+  description: string;
+  complexity: string;
+}
+
+export const DIFFICULTY_PRESETS: Record<Difficulty, DifficultyPreset> = {
   easy: {
-    gridSize: 20,
-    maxAttempts: 40,
-    suggestionsPerStep: 3,
+    gridSize: 8,
+    budget: 100,
+    suggestionsPerStep: DXTER_RECOMMENDATIONS,
+    label: "Easy",
+    description: "Explore freely and learn the mechanics.",
+    complexity: "Simple patterns",
   },
   medium: {
-    gridSize: 30,
-    maxAttempts: 35,
-    suggestionsPerStep: 3,
+    gridSize: 12,
+    budget: 200,
+    suggestionsPerStep: DXTER_RECOMMENDATIONS,
+    label: "Medium",
+    description: "Balance cost and information to find the optimum.",
+    complexity: "Moderate complexity",
   },
   hard: {
-    gridSize: 40,
-    maxAttempts: 30,
-    suggestionsPerStep: 2,
+    gridSize: 16,
+    budget: 320,
+    suggestionsPerStep: DXTER_RECOMMENDATIONS,
+    label: "Hard",
+    description: "High complexity and tight budget constraints.",
+    complexity: "High complexity",
   },
 };
+
+// ---------------------------------------------------------------------------
+// All available benchmark function IDs (for random selection)
+// ---------------------------------------------------------------------------
+
+export const ALL_BENCHMARK_FUNCTIONS: BenchmarkFunction[] = [
+  "rastrigin",
+  "ackley",
+  "rosenbrock",
+  "himmelblau",
+  "schwefel",
+  "gaussian_mixture",
+  "sinusoidal",
+];
+
+/** Pick a random benchmark function */
+export function getRandomBenchmarkFunction(): BenchmarkFunction {
+  const idx = Math.floor(Math.random() * ALL_BENCHMARK_FUNCTIONS.length);
+  return ALL_BENCHMARK_FUNCTIONS[idx]!;
+}
 
 // ---------------------------------------------------------------------------
 // Default / initial state factories
 // ---------------------------------------------------------------------------
 
 export const DEFAULT_CONFIG: GameConfig = {
-  gridSize: 30,
-  maxAttempts: 35,
+  gridSize: 12,
+  budget: 200,
   benchmarkFunction: "himmelblau",
   objective: "maximize",
-  mode: "manual",
   difficulty: "medium",
-  suggestionsPerStep: 3,
+  suggestionsPerStep: DXTER_RECOMMENDATIONS,
+  advancedMode: false,
 };
 
 export function createEmptyStats(): GameStats {
   return {
-    attemptsUsed: 0,
+    iterations: 0,
+    budgetSpent: 0,
     bestValueFound: -Infinity,
     bestPosition: null,
-    optimumValue: 0,
+    optimumValue: 100,
     optimumPosition: { row: 0, col: 0 },
     score: 0,
     revealHistory: [],
-    dxterCredits: 5,
+    dxterUsed: false,
+    dxterAsks: 0,
   };
 }
 
 export function createInitialGameState(): GameState {
   return {
     phase: "landing",
+    playerName: "",
     config: { ...DEFAULT_CONFIG },
     grid: [],
     stats: createEmptyStats(),
     isFinished: false,
     startedAt: null,
     finishedAt: null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Helper: budget remaining
+// ---------------------------------------------------------------------------
+
+export function getBudgetRemaining(
+  config: GameConfig,
+  stats: GameStats,
+): number {
+  return config.budget - stats.budgetSpent;
+}
+
+export function canAffordFlip(config: GameConfig, stats: GameStats): boolean {
+  return getBudgetRemaining(config, stats) >= FLIP_COST;
+}
+
+export function canAffordDxter(config: GameConfig, stats: GameStats): boolean {
+  return getBudgetRemaining(config, stats) >= DXTER_COST;
+}
+
+// ---------------------------------------------------------------------------
+// Archetype determination
+// ---------------------------------------------------------------------------
+
+export function getPlayerArchetype(
+  stats: GameStats,
+  config: GameConfig,
+  foundOptimum: boolean,
+): PlayerArchetype {
+  const budgetUsedPct = (stats.budgetSpent / config.budget) * 100;
+  const usedDxter = stats.dxterUsed;
+
+  if (foundOptimum && budgetUsedPct <= 40 && usedDxter) {
+    return {
+      emoji: "🦊",
+      title: "Strategist",
+      description: "Balanced exploration with smart decision-making",
+    };
+  }
+
+  if (foundOptimum && budgetUsedPct <= 30) {
+    return {
+      emoji: "🎯",
+      title: "Sharpshooter",
+      description: "Found the optimum with remarkable efficiency",
+    };
+  }
+
+  if (foundOptimum && usedDxter) {
+    return {
+      emoji: "🤝",
+      title: "Collaborator",
+      description: "Great teamwork with DxTER to reach the goal",
+    };
+  }
+
+  if (foundOptimum) {
+    return {
+      emoji: "🏆",
+      title: "Champion",
+      description: "Persevered and found the global maximum",
+    };
+  }
+
+  if (stats.score >= 90) {
+    return {
+      emoji: "🔍",
+      title: "Explorer",
+      description: "Got very close — keep refining your strategy",
+    };
+  }
+
+  if (usedDxter && stats.score >= 70) {
+    return {
+      emoji: "📊",
+      title: "Analyst",
+      description: "Good use of data, but the optimum eluded you",
+    };
+  }
+
+  if (stats.iterations <= 3) {
+    return {
+      emoji: "🌱",
+      title: "Newcomer",
+      description: "Just getting started — try more experiments next time",
+    };
+  }
+
+  return {
+    emoji: "🧪",
+    title: "Experimenter",
+    description: "Keep experimenting — optimization takes persistence",
   };
 }

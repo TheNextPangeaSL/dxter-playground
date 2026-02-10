@@ -38,7 +38,7 @@ function rbfKernel(
   a: [number, number],
   b: [number, number],
   lengthScale: number,
-  signalVariance: number
+  signalVariance: number,
 ): number {
   const dx = a[0] - b[0];
   const dy = a[1] - b[1];
@@ -183,7 +183,10 @@ function normalCDF(x: number): number {
   const t3 = t2 * t;
   const t4 = t3 * t;
   const t5 = t4 * t;
-  const y = 1.0 - (a1 * t + a2 * t2 + a3 * t3 + a4 * t4 + a5 * t5) * Math.exp(-absX * absX / 2);
+  const y =
+    1.0 -
+    (a1 * t + a2 * t2 + a3 * t3 + a4 * t4 + a5 * t5) *
+      Math.exp((-absX * absX) / 2);
 
   return 0.5 * (1 + sign * y);
 }
@@ -229,7 +232,8 @@ export class GaussianProcess {
     const yValues = observations.map((o) => o.y);
     this.yMean = yValues.reduce((sum, v) => sum + v, 0) / n;
 
-    const variance = yValues.reduce((sum, v) => sum + (v - this.yMean) ** 2, 0) / n;
+    const variance =
+      yValues.reduce((sum, v) => sum + (v - this.yMean) ** 2, 0) / n;
     this.yStd = Math.sqrt(variance) || 1;
 
     const yNormalized = yValues.map((v) => (v - this.yMean) / this.yStd);
@@ -244,8 +248,8 @@ export class GaussianProcess {
             observations[i]!.x,
             observations[j]!.x,
             this.config.lengthScale,
-            this.config.signalVariance
-          )
+            this.config.signalVariance,
+          ),
         );
       }
       K.push(row);
@@ -297,8 +301,8 @@ export class GaussianProcess {
           xNew,
           this.observations[i]!.x,
           this.config.lengthScale,
-          this.config.signalVariance
-        )
+          this.config.signalVariance,
+        ),
       );
     }
 
@@ -313,7 +317,7 @@ export class GaussianProcess {
       xNew,
       xNew,
       this.config.lengthScale,
-      this.config.signalVariance
+      this.config.signalVariance,
     );
     const v = forwardSolve(this.L, kStar);
     let vDotV = 0;
@@ -348,7 +352,7 @@ export function expectedImprovement(
   prediction: SurrogatePrediction,
   bestValue: number,
   objective: ObjectiveDirection,
-  xi: number = 0.01
+  xi: number = 0.01,
 ): number {
   const { mean, std } = prediction;
 
@@ -375,7 +379,7 @@ export function expectedImprovement(
 export function upperConfidenceBound(
   prediction: SurrogatePrediction,
   objective: ObjectiveDirection,
-  kappa: number = 2.0
+  kappa: number = 2.0,
 ): number {
   const { mean, std } = prediction;
 
@@ -399,7 +403,7 @@ export class BayesianOptimizer {
   constructor(
     gridSize: number,
     objective: ObjectiveDirection,
-    config: Partial<OptimizerConfig> = {}
+    config: Partial<OptimizerConfig> = {},
   ) {
     this.gridSize = gridSize;
     this.objective = objective;
@@ -519,7 +523,9 @@ export class BayesianOptimizer {
       for (const candidate of scored) {
         if (selected.length >= count) break;
         const alreadySelected = selected.some(
-          (s) => s.row === candidate.position.row && s.col === candidate.position.col
+          (s) =>
+            s.row === candidate.position.row &&
+            s.col === candidate.position.col,
         );
         if (!alreadySelected) {
           selected.push(candidate.position);
@@ -548,7 +554,6 @@ export class BayesianOptimizer {
    */
   private suggestInitialPoints(grid: Cell[][], count: number): GridPosition[] {
     const suggestions: GridPosition[] = [];
-    const step = Math.floor(this.gridSize / (count + 1));
 
     // Place points in a spread-out pattern
     const offsets = this.generateSpreadPoints(count);
@@ -556,16 +561,18 @@ export class BayesianOptimizer {
     for (const [xFrac, yFrac] of offsets) {
       const row = Math.min(
         this.gridSize - 1,
-        Math.max(0, Math.round(yFrac * (this.gridSize - 1)))
+        Math.max(0, Math.round(yFrac * (this.gridSize - 1))),
       );
       const col = Math.min(
         this.gridSize - 1,
-        Math.max(0, Math.round(xFrac * (this.gridSize - 1)))
+        Math.max(0, Math.round(xFrac * (this.gridSize - 1))),
       );
 
       const cell = grid[row]?.[col];
       if (cell && !cell.revealed) {
-        const alreadyAdded = suggestions.some((s) => s.row === row && s.col === col);
+        const alreadyAdded = suggestions.some(
+          (s) => s.row === row && s.col === col,
+        );
         if (!alreadyAdded) {
           suggestions.push({ row, col });
         }
@@ -579,10 +586,17 @@ export class BayesianOptimizer {
           if (suggestions.length >= count) break;
           const row = Math.round((i * this.gridSize) / (count + 1));
           const col = Math.round((j * this.gridSize) / (count + 1));
-          if (row >= 0 && row < this.gridSize && col >= 0 && col < this.gridSize) {
+          if (
+            row >= 0 &&
+            row < this.gridSize &&
+            col >= 0 &&
+            col < this.gridSize
+          ) {
             const cell = grid[row]?.[col];
             if (cell && !cell.revealed) {
-              const alreadyAdded = suggestions.some((s) => s.row === row && s.col === col);
+              const alreadyAdded = suggestions.some(
+                (s) => s.row === row && s.col === col,
+              );
               if (!alreadyAdded) {
                 suggestions.push({ row, col });
               }
@@ -605,15 +619,15 @@ export class BayesianOptimizer {
 
     // Start with corners and center
     const keyPoints: Array<[number, number]> = [
-      [0.5, 0.5],   // center
-      [0.2, 0.2],   // top-left area
-      [0.8, 0.2],   // top-right area
-      [0.2, 0.8],   // bottom-left area
-      [0.8, 0.8],   // bottom-right area
-      [0.5, 0.2],   // top center
-      [0.2, 0.5],   // left center
-      [0.8, 0.5],   // right center
-      [0.5, 0.8],   // bottom center
+      [0.5, 0.5], // center
+      [0.2, 0.2], // top-left area
+      [0.8, 0.2], // top-right area
+      [0.2, 0.8], // bottom-left area
+      [0.8, 0.8], // bottom-right area
+      [0.5, 0.2], // top center
+      [0.2, 0.5], // left center
+      [0.8, 0.5], // right center
+      [0.5, 0.8], // bottom center
       [0.35, 0.35], // inner offsets
       [0.65, 0.35],
       [0.35, 0.65],
@@ -668,22 +682,23 @@ export class BayesianOptimizer {
     }
 
     const localCandidates = unrevealed.filter((cell) =>
-      nearObserved.has(`${cell.row},${cell.col}`)
+      nearObserved.has(`${cell.row},${cell.col}`),
     );
 
     // Then, add a uniform random subsample for global exploration
     const remaining = unrevealed.filter(
-      (cell) => !nearObserved.has(`${cell.row},${cell.col}`)
+      (cell) => !nearObserved.has(`${cell.row},${cell.col}`),
     );
-    const globalBudget = Math.max(
-      200,
-      maxCandidates - localCandidates.length
-    );
+    const globalBudget = Math.max(200, maxCandidates - localCandidates.length);
 
     // Deterministic subsampling using stride
     const stride = Math.max(1, Math.floor(remaining.length / globalBudget));
     const globalCandidates: Cell[] = [];
-    for (let i = 0; i < remaining.length && globalCandidates.length < globalBudget; i += stride) {
+    for (
+      let i = 0;
+      i < remaining.length && globalCandidates.length < globalBudget;
+      i += stride
+    ) {
       globalCandidates.push(remaining[i]!);
     }
 
@@ -701,7 +716,7 @@ export class BayesianOptimizer {
 export function createOptimizer(
   gridSize: number,
   objective: ObjectiveDirection,
-  config?: Partial<OptimizerConfig>
+  config?: Partial<OptimizerConfig>,
 ): BayesianOptimizer {
   return new BayesianOptimizer(gridSize, objective, config);
 }

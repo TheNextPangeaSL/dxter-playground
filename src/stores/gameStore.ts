@@ -1,30 +1,36 @@
 // ---------------------------------------------------------------------------
-// BuscaÓptimos – Game State Store (nanostores)
+// DxTER: The Optimization Game – Game State Store (nanostores)
 // ---------------------------------------------------------------------------
 // Centralized reactive state management for the entire game.
 // Uses nanostores for lightweight, framework-agnostic reactivity
 // that works seamlessly with Astro Islands (React components).
+//
+// Budget-based system: Flip tile = $2, Ask DxTER = $5
+// Objective: always maximize (find the global maximum in 0-100 range)
 // ---------------------------------------------------------------------------
 
-import { atom, computed, map } from "nanostores";
+import { atom, computed } from "nanostores";
 
 import type {
   GameState,
   GameConfig,
   GamePhase,
-  GameMode,
   GameResult,
-  ModeComparison,
   GridPosition,
-  Cell,
   Difficulty,
   BenchmarkFunction,
-  ObjectiveDirection,
 } from "@/types/game";
+import { addHighScore, type HighScoreEntry } from "@/lib/highScores";
 import {
-  DEFAULT_CONFIG,
   DIFFICULTY_PRESETS,
+  FLIP_COST,
+  DXTER_COST,
   createInitialGameState,
+  getRandomBenchmarkFunction,
+  getBudgetRemaining,
+  canAffordFlip,
+  canAffordDxter,
+  getPlayerArchetype,
 } from "@/types/game";
 import {
   createGameState,
@@ -33,11 +39,9 @@ import {
   clearSuggestions,
   revealAllCells,
   canRevealCell,
+  isOptimumFound,
 } from "@/lib/grid";
-import {
-  BayesianOptimizer,
-  createOptimizer,
-} from "@/lib/optimizer";
+import { BayesianOptimizer, createOptimizer } from "@/lib/optimizer";
 import { randomizeGaussianMixture } from "@/lib/functions";
 
 // ---------------------------------------------------------------------------
@@ -47,17 +51,17 @@ import { randomizeGaussianMixture } from "@/lib/functions";
 /** The main game state – single source of truth */
 export const $gameState = atom<GameState>(createInitialGameState());
 
-/** The current Bayesian optimizer instance (guided mode) */
+/** The current Bayesian optimizer instance */
 let optimizer: BayesianOptimizer | null = null;
 
 // ---------------------------------------------------------------------------
-// Comparison store (manual vs guided results)
+// Last game result (for results screen)
 // ---------------------------------------------------------------------------
 
-export const $comparison = map<ModeComparison>({
-  manual: null,
-  guided: null,
-});
+export const $lastResult = atom<GameResult | null>(null);
+
+/** The high score entry that was just saved (to highlight it in the table) */
+export const $lastSavedHighScore = atom<HighScoreEntry | null>(null);
 
 // ---------------------------------------------------------------------------
 // Computed / Derived Stores
@@ -65,6 +69,9 @@ export const $comparison = map<ModeComparison>({
 
 /** Current game phase */
 export const $phase = computed($gameState, (state) => state.phase);
+
+/** Current player name */
+export const $playerName = computed($gameState, (state) => state.playerName);
 
 /** Current game config */
 export const $config = computed($gameState, (state) => state.config);
@@ -78,22 +85,24 @@ export const $stats = computed($gameState, (state) => state.stats);
 /** Whether the game is finished */
 export const $isFinished = computed($gameState, (state) => state.isFinished);
 
-/** Number of attempts remaining */
-export const $attemptsRemaining = computed($gameState, (state) => {
-  return state.config.maxAttempts - state.stats.attemptsUsed;
+/** Budget remaining */
+export const $budgetRemaining = computed($gameState, (state) => {
+  return getBudgetRemaining(state.config, state.stats);
 });
 
-/** Progress percentage (attempts used / max) */
-export const $progressPercent = computed($gameState, (state) => {
-  if (state.config.maxAttempts === 0) return 0;
-  return (state.stats.attemptsUsed / state.config.maxAttempts) * 100;
+/** Budget progress percentage (spent / total) */
+export const $budgetProgressPercent = computed($gameState, (state) => {
+  if (state.config.budget === 0) return 0;
+  return (state.stats.budgetSpent / state.config.budget) * 100;
 });
 
-/** Whether the game is currently in guided mode */
-export const $isGuidedMode = computed(
-  $gameState,
-  (state) => state.config.mode === "guided"
-);
+/** Budget remaining as a fraction for the progress bar (remaining / total) */
+export const $budgetBarPercent = computed($gameState, (state) => {
+  if (state.config.budget === 0) return 0;
+  return (
+    (getBudgetRemaining(state.config, state.stats) / state.config.budget) * 100
+  );
+});
 
 /** Whether there are any suggestions currently shown on the grid */
 export const $hasSuggestions = computed($gameState, (state) => {
@@ -113,14 +122,19 @@ export const $suggestedPositions = computed($gameState, (state) => {
   return positions;
 });
 
-/** Current score as a formatted string */
-export const $scoreDisplay = computed($gameState, (state) => {
-  return state.stats.score.toFixed(1);
+/** Whether the player can afford to flip a tile */
+export const $canFlip = computed($gameState, (state) => {
+  return canAffordFlip(state.config, state.stats) && !state.isFinished;
 });
 
-/** DxTER credits remaining */
-export const $dxterCredits = computed($gameState, (state) => {
-  return state.stats.dxterCredits;
+/** Whether the player can afford to ask DxTER */
+export const $canAskDxter = computed($gameState, (state) => {
+  return canAffordDxter(state.config, state.stats) && !state.isFinished;
+});
+
+/** Number of iterations (experiments) performed */
+export const $iterations = computed($gameState, (state) => {
+  return state.stats.iterations;
 });
 
 // ---------------------------------------------------------------------------
@@ -136,12 +150,19 @@ export function setPhase(phase: GamePhase): void {
 /** Go to landing page */
 export function goToLanding(): void {
   $gameState.set(createInitialGameState());
+  $lastSavedHighScore.set(null);
   optimizer = null;
 }
 
 /** Go to setup screen */
 export function goToSetup(): void {
   setPhase("setup");
+}
+
+/** Set the player / session name */
+export function setPlayerName(name: string): void {
+  const current = $gameState.get();
+  $gameState.set({ ...current, playerName: name });
 }
 
 // ---------------------------------------------------------------------------
@@ -157,16 +178,11 @@ export function updateConfig(partial: Partial<GameConfig>): void {
   if (partial.difficulty && partial.difficulty !== current.config.difficulty) {
     const preset = DIFFICULTY_PRESETS[partial.difficulty];
     newConfig.gridSize = preset.gridSize;
-    newConfig.maxAttempts = preset.maxAttempts;
+    newConfig.budget = preset.budget;
     newConfig.suggestionsPerStep = preset.suggestionsPerStep;
   }
 
   $gameState.set({ ...current, config: newConfig });
-}
-
-/** Set the game mode */
-export function setGameMode(mode: GameMode): void {
-  updateConfig({ mode });
 }
 
 /** Set the difficulty */
@@ -174,14 +190,14 @@ export function setDifficulty(difficulty: Difficulty): void {
   updateConfig({ difficulty });
 }
 
-/** Set the benchmark function */
+/** Set the benchmark function (only in advanced mode) */
 export function setBenchmarkFunction(fn: BenchmarkFunction): void {
   updateConfig({ benchmarkFunction: fn });
 }
 
-/** Set the objective direction */
-export function setObjective(objective: ObjectiveDirection): void {
-  updateConfig({ objective });
+/** Toggle advanced mode */
+export function setAdvancedMode(enabled: boolean): void {
+  updateConfig({ advancedMode: enabled });
 }
 
 // ---------------------------------------------------------------------------
@@ -191,7 +207,15 @@ export function setObjective(objective: ObjectiveDirection): void {
 /** Start a new game with the current configuration */
 export function startGame(): void {
   const current = $gameState.get();
-  const config = current.config;
+  const config = { ...current.config };
+
+  // If not in advanced mode, pick a random benchmark function
+  if (!config.advancedMode) {
+    config.benchmarkFunction = getRandomBenchmarkFunction();
+  }
+
+  // Always maximize
+  config.objective = "maximize";
 
   // Randomize the Gaussian Mixture if selected
   if (config.benchmarkFunction === "gaussian_mixture") {
@@ -201,21 +225,13 @@ export function startGame(): void {
   // Create the initialized game state
   const newState = createGameState(config);
 
-  // Initialize the optimizer for guided mode
-  if (config.mode === "guided") {
-    optimizer = createOptimizer(config.gridSize, config.objective);
-  } else {
-    optimizer = null;
-  }
+  // Preserve the player name from the current state
+  newState.playerName = current.playerName;
+
+  // Initialize the optimizer (always guided by DxTER, suggestions on demand)
+  optimizer = createOptimizer(config.gridSize, config.objective);
 
   $gameState.set(newState);
-}
-
-/** Start a new game with specific config (for comparison mode) */
-export function startGameWithConfig(config: GameConfig): void {
-  const current = $gameState.get();
-  $gameState.set({ ...current, config });
-  startGame();
 }
 
 /** Restart the current game with the same config */
@@ -230,23 +246,55 @@ export function endGame(): void {
   // Reveal all cells
   const revealedGrid = revealAllCells(current.grid);
 
+  const foundOptimum = isOptimumFound(
+    current.stats.bestValueFound,
+    current.stats.optimumValue,
+    "maximize",
+  );
+
+  // Calculate efficiency score
+  const efficiencyScore = calculateEfficiency(current);
+
+  // Determine player archetype
+  const archetype = getPlayerArchetype(
+    current.stats,
+    current.config,
+    foundOptimum,
+  );
+
+  const durationMs = current.startedAt ? Date.now() - current.startedAt : 0;
+
   // Build the game result
   const result: GameResult = {
+    playerName: current.playerName,
     config: { ...current.config },
     stats: { ...current.stats },
-    durationMs: current.startedAt
-      ? Date.now() - current.startedAt
-      : 0,
+    durationMs,
     score: current.stats.score,
+    foundOptimum,
+    efficiencyScore,
+    archetype,
   };
 
-  // Store the result in the comparison
-  const comparison = $comparison.get();
-  if (current.config.mode === "manual") {
-    $comparison.setKey("manual", result);
-  } else {
-    $comparison.setKey("guided", result);
-  }
+  $lastResult.set(result);
+
+  // Save high score to localStorage
+  const playerName = current.playerName.trim() || "Anonymous";
+  const savedEntry = addHighScore({
+    playerName,
+    difficulty: current.config.difficulty,
+    gridSize: current.config.gridSize,
+    bestValue: current.stats.bestValueFound,
+    foundOptimum,
+    efficiencyScore,
+    score: current.stats.score,
+    budgetSpent: current.stats.budgetSpent,
+    budgetTotal: current.config.budget,
+    iterations: current.stats.iterations,
+    dxterUsed: current.stats.dxterUsed,
+    durationMs,
+  });
+  $lastSavedHighScore.set(savedEntry);
 
   $gameState.set({
     ...current,
@@ -257,13 +305,22 @@ export function endGame(): void {
   });
 }
 
+/**
+ * Transition from the game-over modal to the results screen.
+ * Called when the user clicks "View Results" on the modal.
+ */
+export function viewResults(): void {
+  endGame();
+}
+
 // ---------------------------------------------------------------------------
 // Actions: Gameplay (Reveal Cells)
 // ---------------------------------------------------------------------------
 
 /**
  * Reveal a cell at the given position.
- * In guided mode, also triggers new suggestions after revealing.
+ * Costs FLIP_COST ($2) from the budget.
+ * Does NOT auto-generate DxTER suggestions (player must ask explicitly).
  */
 export function handleCellClick(position: GridPosition): void {
   const current = $gameState.get();
@@ -274,77 +331,62 @@ export function handleCellClick(position: GridPosition): void {
   // Reveal the cell
   let newState = revealCell(current, position);
 
-  // Add observation to the optimizer (guided mode)
+  // Add observation to the optimizer (use the raw value for GP, not the 0-100 value)
   if (optimizer) {
     const cell = current.grid[position.row]?.[position.col];
     if (cell) {
-      optimizer.addObservation(position, cell.value);
+      optimizer.addObservation(position, cell.rawValue);
     }
   }
 
-  // If game is finished after this reveal, end the game
-  if (newState.isFinished) {
-    const revealedGrid = revealAllCells(newState.grid);
-
-    const result: GameResult = {
-      config: { ...newState.config },
-      stats: { ...newState.stats },
-      durationMs: newState.startedAt
-        ? Date.now() - newState.startedAt
-        : 0,
-      score: newState.stats.score,
-    };
-
-    const comparison = $comparison.get();
-    if (newState.config.mode === "manual") {
-      $comparison.setKey("manual", result);
-    } else {
-      $comparison.setKey("guided", result);
-    }
-
-    newState = {
-      ...newState,
-      grid: revealedGrid,
-      phase: "results",
-      finishedAt: Date.now(),
-    };
-
-    $gameState.set(newState);
-    return;
-  }
-
-  // In guided mode, generate new suggestions
-  if (optimizer && newState.config.mode === "guided") {
-    const suggestions = optimizer.suggest(
-      newState.grid,
-      newState.config.suggestionsPerStep
-    );
-    const gridWithSuggestions = setSuggestions(newState.grid, suggestions);
-    newState = { ...newState, grid: gridWithSuggestions };
-  }
-
+  // If game is finished after this reveal, DON'T auto-transition.
+  // The GameBoard component will show a game-over modal instead.
   $gameState.set(newState);
 }
 
 // ---------------------------------------------------------------------------
-// Actions: Suggestions (Guided Mode)
+// Actions: DxTER Suggestions (Ask DxTER – costs $5)
 // ---------------------------------------------------------------------------
 
 /**
- * Manually trigger suggestion generation.
- * Useful for the initial suggestions before the player makes their first click.
+ * Ask DxTER for recommendations. Costs DXTER_COST ($5) from the budget.
+ * Returns 3 recommended tiles highlighted on the grid.
+ * Returns true if suggestions were generated, false if not enough budget.
  */
-export function generateSuggestions(): void {
+export function askDxter(): boolean {
   const current = $gameState.get();
-  if (!optimizer || current.config.mode !== "guided") return;
 
+  if (!canAffordDxter(current.config, current.stats)) return false;
+  if (current.isFinished) return false;
+  if (!optimizer) return false;
+
+  // Deduct DxTER cost from budget
+  const newStats = {
+    ...current.stats,
+    budgetSpent: current.stats.budgetSpent + DXTER_COST,
+    dxterUsed: true,
+    dxterAsks: current.stats.dxterAsks + 1,
+  };
+
+  // Check if budget is now exhausted (cannot afford even a flip)
+  const newBudgetRemaining = current.config.budget - newStats.budgetSpent;
+  const isFinished = newBudgetRemaining < FLIP_COST;
+
+  // Fit the GP if there are observations, then generate suggestions
   const suggestions = optimizer.suggest(
     current.grid,
-    current.config.suggestionsPerStep
+    current.config.suggestionsPerStep,
   );
   const gridWithSuggestions = setSuggestions(current.grid, suggestions);
 
-  $gameState.set({ ...current, grid: gridWithSuggestions });
+  $gameState.set({
+    ...current,
+    stats: newStats,
+    grid: gridWithSuggestions,
+    isFinished,
+  });
+
+  return true;
 }
 
 /** Clear all suggestions from the grid */
@@ -354,77 +396,37 @@ export function clearAllSuggestions(): void {
   $gameState.set({ ...current, grid: clearedGrid });
 }
 
+// ---------------------------------------------------------------------------
+// Efficiency Calculation
+// ---------------------------------------------------------------------------
+
 /**
- * Request a DxTER hint. Consumes 1 DxTER credit and generates suggestions.
- * Returns true if a hint was generated, false if no credits remain.
+ * Calculate an efficiency score (0-100).
+ * Higher is better. Rewards finding high values with low budget usage.
+ *
+ * efficiency = score * (1 - budgetUsedFraction * 0.5)
  */
-export function requestHint(): boolean {
-  const current = $gameState.get();
-  if (current.stats.dxterCredits <= 0) return false;
-  if (!optimizer) return false;
-
-  // Consume one credit
-  const newStats = {
-    ...current.stats,
-    dxterCredits: current.stats.dxterCredits - 1,
-  };
-
-  const suggestions = optimizer.suggest(
-    current.grid,
-    current.config.suggestionsPerStep
-  );
-  const gridWithSuggestions = setSuggestions(current.grid, suggestions);
-
-  $gameState.set({ ...current, stats: newStats, grid: gridWithSuggestions });
-  return true;
+function calculateEfficiency(state: GameState): number {
+  const budgetFraction = state.stats.budgetSpent / state.config.budget;
+  const rawEfficiency = state.stats.score * (1 - budgetFraction * 0.5);
+  return Math.max(0, Math.min(100, Math.round(rawEfficiency)));
 }
 
 // ---------------------------------------------------------------------------
-// Actions: Comparison Mode
+// Actions: Quick Play (convenience shortcut)
 // ---------------------------------------------------------------------------
 
-/** Clear the comparison data */
-export function clearComparison(): void {
-  $comparison.set({ manual: null, guided: null });
-}
-
-/** Check if both modes have been played for comparison */
-export const $canCompare = computed($comparison, (comp) => {
-  return comp.manual !== null && comp.guided !== null;
-});
-
-// ---------------------------------------------------------------------------
-// Actions: Quick Play (convenience shortcuts)
-// ---------------------------------------------------------------------------
-
-/** Quick start a manual game with default settings */
-export function quickStartManual(
-  difficulty: Difficulty = "medium",
-  fn: BenchmarkFunction = "himmelblau"
-): void {
+/** Quick start a game with default settings */
+export function quickStart(difficulty: Difficulty = "medium"): void {
   const preset = DIFFICULTY_PRESETS[difficulty];
   updateConfig({
-    ...preset,
+    gridSize: preset.gridSize,
+    budget: preset.budget,
+    suggestionsPerStep: preset.suggestionsPerStep,
     difficulty,
-    benchmarkFunction: fn,
+    benchmarkFunction: getRandomBenchmarkFunction(),
     objective: "maximize",
-    mode: "manual",
-  });
-  startGame();
-}
-
-/** Quick start a guided game with default settings */
-export function quickStartGuided(
-  difficulty: Difficulty = "medium",
-  fn: BenchmarkFunction = "himmelblau"
-): void {
-  const preset = DIFFICULTY_PRESETS[difficulty];
-  updateConfig({
-    ...preset,
-    difficulty,
-    benchmarkFunction: fn,
-    objective: "maximize",
-    mode: "guided",
+    advancedMode: false,
   });
   startGame();
 }
@@ -433,7 +435,7 @@ export function quickStartGuided(
 // Utility: Get the optimizer instance (for advanced visualization)
 // ---------------------------------------------------------------------------
 
-/** Get the current optimizer instance (or null if not in guided mode) */
+/** Get the current optimizer instance */
 export function getOptimizer(): BayesianOptimizer | null {
   return optimizer;
 }
