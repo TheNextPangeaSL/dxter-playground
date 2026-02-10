@@ -3,8 +3,8 @@ import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  site: "https://thenextpangeasl.github.io",
-  base: "/dxter-playground",
+  site: "https://game.dxter.ai",
+  base: "/",
   integrations: [react()],
   vite: {
     plugins: [tailwindcss()],
