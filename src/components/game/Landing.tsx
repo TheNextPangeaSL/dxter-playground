@@ -24,6 +24,7 @@ export default function Landing() {
   const [selected, setSelected] = useState<Difficulty>(config.difficulty);
   const [showNameModal, setShowNameModal] = useState(false);
   const [showHighScores, setShowHighScores] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
   const [nameValue, setNameValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -86,12 +87,20 @@ export default function Landing() {
           </span>
         </div>
         <div className="hidden sm:flex items-center gap-6 text-sm text-slate-500">
-          <button className="hover:text-slate-700 transition-colors cursor-pointer">
+          <button
+            onClick={() => setShowInstructions(true)}
+            className="hover:text-slate-700 transition-colors cursor-pointer"
+          >
             Instructions
           </button>
-          <button className="hover:text-slate-700 transition-colors cursor-pointer">
+          <a
+            href="https://dxter.ai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-slate-700 transition-colors cursor-pointer"
+          >
             About DxTER
-          </button>
+          </a>
           <button
             onClick={() => setShowHighScores(true)}
             className="hover:text-slate-700 transition-colors cursor-pointer"
@@ -394,6 +403,11 @@ export default function Landing() {
         </div>
       )}
 
+      {/* ── Instructions Modal ── */}
+      {showInstructions && (
+        <InstructionsModal onClose={() => setShowInstructions(false)} />
+      )}
+
       {/* ── High Scores Modal ── */}
       {showHighScores && (
         <HighScoresModal onClose={() => setShowHighScores(false)} />
@@ -411,6 +425,254 @@ function StatRow({ icon, label }: { icon: React.ReactNode; label: string }) {
     <div className="flex items-center gap-2 text-sm text-slate-500">
       {icon}
       <span>{label}</span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Instructions Modal
+// ---------------------------------------------------------------------------
+
+function InstructionsModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#177B7D]/10 flex items-center justify-center">
+              <svg
+                className="w-5 h-5 text-[#177B7D]"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg font-display font-bold text-slate-800">
+              How to Play
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6 text-sm text-slate-600 leading-relaxed">
+          {/* Goal */}
+          <section>
+            <h4 className="text-base font-display font-bold text-slate-800 mb-2 flex items-center gap-2">
+              <span className="text-lg">🎯</span> Goal
+            </h4>
+            <p>
+              You're exploring a hidden landscape of values. Your mission is to{" "}
+              <strong className="text-slate-800">
+                find the global maximum
+              </strong>{" "}
+              — the highest value on the entire grid — before you run out of
+              budget.
+            </p>
+          </section>
+
+          {/* How it works */}
+          <section>
+            <h4 className="text-base font-display font-bold text-slate-800 mb-2 flex items-center gap-2">
+              <span className="text-lg">⚙️</span> How It Works
+            </h4>
+            <ul className="space-y-2.5">
+              <li className="flex items-start gap-2.5">
+                <span className="mt-0.5 w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">
+                  1
+                </span>
+                <span>
+                  <strong className="text-slate-800">Click any tile</strong> to
+                  flip it and reveal its hidden value. Each flip costs{" "}
+                  <strong className="text-[#177B7D]">$2</strong> from your
+                  budget.
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="mt-0.5 w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">
+                  2
+                </span>
+                <span>
+                  Use the revealed values to guide your search — nearby tiles
+                  often have similar values.
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="mt-0.5 w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">
+                  3
+                </span>
+                <span>
+                  The game ends when you find the maximum (value{" "}
+                  <strong className="text-slate-800">100</strong>) or you run
+                  out of budget.
+                </span>
+              </li>
+            </ul>
+          </section>
+
+          {/* DxTER */}
+          <section>
+            <h4 className="text-base font-display font-bold text-slate-800 mb-2 flex items-center gap-2">
+              <span className="text-lg">🤖</span> Ask DxTER
+            </h4>
+            <p className="mb-2">
+              <strong className="text-slate-800">DxTER</strong> is your AI
+              assistant. For <strong className="text-[#177B7D]">$5</strong>,
+              DxTER will analyze the data you've collected so far and suggest{" "}
+              <strong className="text-slate-800">3 tiles</strong> most likely to
+              contain high values. Suggested tiles appear with a{" "}
+              <span className="text-[#177B7D] font-semibold">
+                dashed teal border
+              </span>
+              .
+            </p>
+            <p>
+              DxTER uses a Bayesian optimization model internally — the more
+              data you give it, the better its recommendations become.
+            </p>
+          </section>
+
+          {/* Tile colors */}
+          <section>
+            <h4 className="text-base font-display font-bold text-slate-800 mb-2 flex items-center gap-2">
+              <span className="text-lg">🎨</span> Tile Colors
+            </h4>
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <span
+                  className="w-7 h-7 rounded-md shrink-0"
+                  style={{ backgroundColor: "#D1D5DB" }}
+                />
+                <span>
+                  <strong className="text-slate-700">Gray</strong> — Low value,
+                  far from the best found so far.
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span
+                  className="w-7 h-7 rounded-md shrink-0"
+                  style={{ backgroundColor: "#7FC7C3" }}
+                />
+                <span>
+                  <strong className="text-slate-700">Light teal</strong> — Close
+                  to the best value found (within 15%).
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span
+                  className="w-7 h-7 rounded-md shrink-0"
+                  style={{ backgroundColor: "#177B7D" }}
+                />
+                <span>
+                  <strong className="text-white bg-[#177B7D] px-1.5 py-0.5 rounded">
+                    Dark teal
+                  </strong>{" "}
+                  — The best value you've found so far.
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* Budget & Scoring */}
+          <section>
+            <h4 className="text-base font-display font-bold text-slate-800 mb-2 flex items-center gap-2">
+              <span className="text-lg">💰</span> Budget & Scoring
+            </h4>
+            <div className="bg-slate-50 rounded-xl p-4 space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span>Easy</span>
+                <span className="font-semibold text-slate-700">
+                  8×8 grid · $100 budget · up to 50 flips
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Medium</span>
+                <span className="font-semibold text-slate-700">
+                  12×12 grid · $200 budget · up to 100 flips
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Hard</span>
+                <span className="font-semibold text-slate-700">
+                  16×16 grid · $320 budget · up to 160 flips
+                </span>
+              </div>
+            </div>
+            <p className="mt-2.5">
+              Your <strong className="text-slate-800">efficiency score</strong>{" "}
+              rewards finding the maximum while spending as little budget as
+              possible. The best scores come from smart, strategic exploration —
+              not brute force.
+            </p>
+          </section>
+
+          {/* Tips */}
+          <section>
+            <h4 className="text-base font-display font-bold text-slate-800 mb-2 flex items-center gap-2">
+              <span className="text-lg">💡</span> Pro Tips
+            </h4>
+            <ul className="space-y-1.5 list-disc list-inside marker:text-[#177B7D]">
+              <li>
+                Start by spreading your clicks across different areas to survey
+                the landscape.
+              </li>
+              <li>
+                When you find a promising region (high values), explore its
+                neighbors to zero in on the peak.
+              </li>
+              <li>
+                Use DxTER after 3-5 manual flips — it needs some data to give
+                good recommendations.
+              </li>
+              <li>
+                Don't flip every tile — real optimization is about finding the
+                best answer with the fewest experiments.
+              </li>
+            </ul>
+          </section>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-6 py-2.5 bg-[#177B7D] hover:bg-[#155e5f] text-white font-semibold text-sm rounded-xl transition-colors cursor-pointer"
+          >
+            Got it!
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
