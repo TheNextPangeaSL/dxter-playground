@@ -335,7 +335,11 @@ export function handleCellClick(position: GridPosition): void {
   if (optimizer) {
     const cell = current.grid[position.row]?.[position.col];
     if (cell) {
-      optimizer.addObservation(position, cell.rawValue);
+      // Use the normalized 0-100 value (not rawValue) so the GP always
+      // works in a known, consistent scale regardless of the underlying
+      // function's range. This prevents the GP from being wildly
+      // overconfident when raw values happen to be near zero.
+      optimizer.addObservation(position, cell.value);
     }
   }
 
