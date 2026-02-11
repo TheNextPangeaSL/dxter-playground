@@ -1,5 +1,5 @@
 import { useStore } from "@nanostores/react";
-import { useCallback, useEffect, useRef, useState, memo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import {
   $gameState,
   $config,
@@ -18,6 +18,7 @@ import {
 } from "@/stores/gameStore";
 import type { Cell } from "@/types/game";
 import { FLIP_COST, DXTER_COST, getBudgetRemaining } from "@/types/game";
+import DxterAnimationModal from "./DxterAnimationModal";
 import {
   getTileColor,
   getTileTextColor,
@@ -50,6 +51,7 @@ export default function GameBoard() {
   const [timer, setTimer] = useState("00:00");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const [showDxterAnimation, setShowDxterAnimation] = useState(false);
 
   // Timer logic
   useEffect(() => {
@@ -88,8 +90,28 @@ export default function GameBoard() {
   );
 
   const handleAskDxter = useCallback(() => {
+    if (!canAskDxter) return;
+    setShowDxterAnimation(true);
+  }, [canAskDxter]);
+
+  const handleDxterApply = useCallback(() => {
     askDxter();
+    setShowDxterAnimation(false);
   }, []);
+
+  const handleDxterClose = useCallback(() => {
+    setShowDxterAnimation(false);
+  }, []);
+
+  const revealedCount = useMemo(() => {
+    let count = 0;
+    for (const row of grid) {
+      for (const cell of row) {
+        if (cell.revealed) count++;
+      }
+    }
+    return count;
+  }, [grid]);
 
   const handlePlayAgain = useCallback(() => {
     setShowGameOverModal(false);
@@ -460,6 +482,16 @@ export default function GameBoard() {
           </aside>
         </div>
       </div>
+
+      {/* ── DxTER Animation Modal ── */}
+      <DxterAnimationModal
+        open={showDxterAnimation}
+        previewOnly={false}
+        revealedCount={revealedCount}
+        recommendationCount={config.suggestionsPerStep}
+        onApply={handleDxterApply}
+        onClose={handleDxterClose}
+      />
 
       {/* ── Game Over Modal ── */}
       {showGameOverModal && (
