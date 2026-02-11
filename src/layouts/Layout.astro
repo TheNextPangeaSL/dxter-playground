@@ -32,11 +32,20 @@ const {
         <title>{title}</title>
     </head>
     <body
-        class="min-h-dvh bg-[#f5f7fa] text-slate-800 font-sans antialiased selection:bg-dxter-500/20 selection:text-dxter-900"
+        class="h-dvh flex flex-col bg-[#f5f7fa] text-slate-800 font-sans antialiased selection:bg-dxter-500/20 selection:text-dxter-900"
     >
-        <main class="relative">
+        <main class="relative flex-1 min-h-0">
             <slot />
         </main>
+        <footer class="w-full py-2 text-center text-sm text-slate-400 shrink-0">
+            © 2026 • <a
+                href="https://dxter.ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-[#177B7D] hover:text-[#125d5f] underline underline-offset-2 transition-colors"
+                >DxTER</a
+            > is a product of The Next Pangea. All rights reserved.
+        </footer>
     </body>
 </html>
 

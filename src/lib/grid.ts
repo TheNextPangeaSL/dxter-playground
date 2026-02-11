@@ -236,12 +236,8 @@ export function revealCell(
     wasSuggested: cell.suggested,
   };
 
-  // Clear all suggestion markers after a reveal (they will be recalculated)
-  for (const r of newGrid) {
-    for (const c of r) {
-      c.suggested = false;
-    }
-  }
+  // Only clear the suggestion marker on the revealed cell (keep remaining suggestions visible)
+  targetCell.suggested = false;
 
   // Calculate new score
   const newScore = calculateScore(
@@ -301,7 +297,8 @@ export function setSuggestions(
   grid: Cell[][],
   suggestions: GridPosition[],
 ): Cell[][] {
-  const newGrid = grid.map((r) => r.map((c) => ({ ...c, suggested: false })));
+  // Keep existing suggestions and accumulate new ones on top
+  const newGrid = grid.map((r) => r.map((c) => ({ ...c })));
 
   for (const pos of suggestions) {
     const cell = newGrid[pos.row]?.[pos.col];

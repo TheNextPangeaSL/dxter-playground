@@ -285,11 +285,6 @@ export default function Landing() {
         </button>
       </main>
 
-      {/* ── Footer ── */}
-      <footer className="py-6 text-center text-sm text-slate-400 border-t border-[#e5e7eb]">
-        Inspired by real-world experimental optimization problems.
-      </footer>
-
       {/* ── Player Name Modal ── */}
       {showNameModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">

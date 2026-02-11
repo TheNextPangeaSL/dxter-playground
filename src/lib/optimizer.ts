@@ -506,7 +506,7 @@ export class BayesianOptimizer {
     const unrevealed: Cell[] = [];
     for (const row of grid) {
       for (const cell of row) {
-        if (!cell.revealed) {
+        if (!cell.revealed && !cell.suggested) {
           unrevealed.push(cell);
         }
       }

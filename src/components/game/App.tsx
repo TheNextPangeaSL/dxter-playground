@@ -9,7 +9,7 @@ export default function App() {
   const phase = useStore($phase);
 
   return (
-    <div className="min-h-dvh flex flex-col">
+    <div className="h-full flex flex-col">
       {phase === "landing" && <Landing />}
       {phase === "setup" && <Setup />}
       {phase === "playing" && <GameBoard />}
