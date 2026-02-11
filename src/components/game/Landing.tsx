@@ -107,6 +107,12 @@ export default function Landing() {
           >
             High Scores
           </button>
+          <a
+            href="mailto:dxter@thenextpangea.com"
+            className="hover:text-slate-700 transition-colors cursor-pointer"
+          >
+            Feedback
+          </a>
         </div>
       </nav>
 
