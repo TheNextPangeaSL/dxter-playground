@@ -19,6 +19,7 @@ import {
 import type { Cell } from "@/types/game";
 import { FLIP_COST, DXTER_COST, getBudgetRemaining } from "@/types/game";
 import DxterAnimationModal from "./DxterAnimationModal";
+import HowItWorksModal from "./HowItWorksModal";
 import {
   getTileColor,
   getTileTextColor,
@@ -52,6 +53,7 @@ export default function GameBoard() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [showDxterAnimation, setShowDxterAnimation] = useState(false);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
 
   // Timer logic
   useEffect(() => {
@@ -463,7 +465,10 @@ export default function GameBoard() {
             </div>
 
             {/* How it works link */}
-            <button className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors cursor-pointer">
+            <button
+              onClick={() => setShowHowItWorks(true)}
+              className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors cursor-pointer"
+            >
               <svg
                 className="w-4 h-4"
                 fill="none"
@@ -482,6 +487,12 @@ export default function GameBoard() {
           </aside>
         </div>
       </div>
+
+      {/* ── How It Works Modal ── */}
+      <HowItWorksModal
+        open={showHowItWorks}
+        onClose={() => setShowHowItWorks(false)}
+      />
 
       {/* ── DxTER Animation Modal ── */}
       <DxterAnimationModal
