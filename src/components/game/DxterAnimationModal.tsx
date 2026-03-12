@@ -125,7 +125,7 @@ export default function DxterAnimationModal({
         </div>
 
         {/* Content area */}
-        <div className="p-8 sm:p-10 min-h-[420px] flex flex-col">
+        <div className="p-5 sm:p-7 min-h-[340px] flex flex-col">
           {step === 1 && <Step1 revealedCount={revealedCount} />}
           {step === 2 && <Step2 />}
           {step === 3 && <Step3 />}
@@ -197,13 +197,13 @@ function Step1({ revealedCount }: { revealedCount: number }) {
       style={{ animation: "dxter-step-enter 0.5s ease-out both" }}
     >
       {/* Animated icon */}
-      <div className="relative mb-6">
+      <div className="relative mb-4">
         <div
-          className="w-20 h-20 rounded-full bg-[#177B7D]/10 flex items-center justify-center"
+          className="w-16 h-16 rounded-full bg-[#177B7D]/10 flex items-center justify-center"
           style={{ animation: "dxter-icon-pulse 2s ease-in-out infinite" }}
         >
           <svg
-            className="w-9 h-9 text-[#177B7D]"
+            className="w-7 h-7 text-[#177B7D]"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -225,10 +225,10 @@ function Step1({ revealedCount }: { revealedCount: number }) {
         </div>
       </div>
 
-      <h3 className="text-xl font-bold text-slate-800 mb-2">
+      <h3 className="text-lg font-bold text-slate-800 mb-1.5">
         Analyzing observed experiments
       </h3>
-      <p className="text-sm text-slate-500 mb-8 max-w-md">
+      <p className="text-sm text-slate-500 mb-5 max-w-md">
         Using {revealedCount} flipped tile{revealedCount !== 1 ? "s" : ""} as
         training data for the surrogate model
       </p>
@@ -261,13 +261,13 @@ function Step2() {
       style={{ animation: "dxter-step-enter 0.5s ease-out both" }}
     >
       {/* Header */}
-      <div className="text-center mb-6">
+      <div className="text-center mb-4">
         <div
-          className="w-16 h-16 rounded-full bg-[#177B7D]/10 flex items-center justify-center mx-auto mb-4"
+          className="w-13 h-13 rounded-full bg-[#177B7D]/10 flex items-center justify-center mx-auto mb-3"
           style={{ animation: "dxter-icon-pulse 2s ease-in-out infinite" }}
         >
           <svg
-            className="w-8 h-8 text-[#177B7D]"
+            className="w-6 h-6 text-[#177B7D]"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -280,7 +280,7 @@ function Step2() {
             />
           </svg>
         </div>
-        <h3 className="text-xl font-bold text-slate-800 mb-1">
+        <h3 className="text-lg font-bold text-slate-800 mb-1">
           Fitting Gaussian Process surrogate model
         </h3>
         <p className="text-sm text-slate-500">
@@ -289,10 +289,10 @@ function Step2() {
       </div>
 
       {/* GP Chart */}
-      <div className="bg-[#FAFAFA] border border-slate-200 rounded-lg p-5 flex-1">
+      <div className="bg-[#FAFAFA] border border-slate-200 rounded-lg p-3 flex-1">
         <svg
           width="100%"
-          height="240"
+          height="200"
           viewBox="0 0 600 240"
           preserveAspectRatio="xMidYMid meet"
         >
@@ -442,13 +442,13 @@ function Step3() {
       style={{ animation: "dxter-step-enter 0.5s ease-out both" }}
     >
       {/* Header */}
-      <div className="text-center mb-6">
+      <div className="text-center mb-4">
         <div
-          className="w-16 h-16 rounded-full bg-[#177B7D]/10 flex items-center justify-center mx-auto mb-4"
+          className="w-13 h-13 rounded-full bg-[#177B7D]/10 flex items-center justify-center mx-auto mb-3"
           style={{ animation: "dxter-icon-pulse 2s ease-in-out infinite" }}
         >
           <svg
-            className="w-8 h-8 text-[#177B7D]"
+            className="w-6 h-6 text-[#177B7D]"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -461,7 +461,7 @@ function Step3() {
             />
           </svg>
         </div>
-        <h3 className="text-xl font-bold text-slate-800 mb-1">
+        <h3 className="text-lg font-bold text-slate-800 mb-1">
           Optimizing acquisition function
         </h3>
         <p className="text-sm text-slate-500">
@@ -470,7 +470,7 @@ function Step3() {
       </div>
 
       {/* Two charts side by side */}
-      <div className="grid grid-cols-2 gap-5 flex-1">
+      <div className="grid grid-cols-2 gap-3 flex-1">
         {/* GP mini chart */}
         <div className="bg-[#FAFAFA] border border-slate-200 rounded-lg p-4">
           <div className="text-xs font-semibold text-slate-600 mb-3 text-center">
@@ -616,9 +616,9 @@ function Step4({
       style={{ animation: "dxter-step-enter 0.5s ease-out both" }}
     >
       {/* Success icon */}
-      <div className="w-20 h-20 rounded-full bg-[#177B7D] flex items-center justify-center mb-5 shadow-lg shadow-[#177B7D]/20">
+      <div className="w-16 h-16 rounded-full bg-[#177B7D] flex items-center justify-center mb-4 shadow-lg shadow-[#177B7D]/20">
         <svg
-          className="w-10 h-10 text-white"
+          className="w-8 h-8 text-white"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -632,16 +632,16 @@ function Step4({
         </svg>
       </div>
 
-      <h3 className="text-xl font-bold text-slate-800 mb-2">
+      <h3 className="text-lg font-bold text-slate-800 mb-1.5">
         {recommendationCount} promising regions identified
       </h3>
-      <p className="text-sm text-slate-500 mb-8 max-w-lg">
+      <p className="text-sm text-slate-500 mb-5 max-w-lg">
         Based on the Gaussian Process model and acquisition optimization, DxTER
         recommends exploring these areas.
       </p>
 
       {/* Preview of recommendation tiles */}
-      <div className="bg-[#177B7D]/5 border border-[#177B7D]/20 rounded-xl p-5 mb-8 w-full max-w-sm">
+      <div className="bg-[#177B7D]/5 border border-[#177B7D]/20 rounded-xl p-4 mb-5 w-full max-w-sm">
         <div className="flex items-center justify-center gap-4">
           {Array.from({ length: recommendationCount }).map((_, i) => (
             <div
@@ -673,7 +673,7 @@ function Step4({
       {/* Apply button */}
       <button
         onClick={onApply}
-        className="w-full max-w-sm bg-[#177B7D] text-white font-semibold py-3.5 px-6 rounded-xl hover:bg-[#155e5f] transition-all shadow-md hover:shadow-lg cursor-pointer active:scale-[0.98]"
+        className="w-full max-w-sm bg-[#177B7D] text-white font-semibold py-2.5 px-5 rounded-xl hover:bg-[#155e5f] transition-all shadow-md hover:shadow-lg cursor-pointer active:scale-[0.98]"
       >
         {previewOnly ? "Close preview" : "Apply recommendations"}
       </button>

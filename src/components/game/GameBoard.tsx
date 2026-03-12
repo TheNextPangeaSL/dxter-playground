@@ -140,10 +140,10 @@ export default function GameBoard() {
     getBudgetRemaining(config, stats) < FLIP_COST && !foundOptimum;
 
   return (
-    <div className="min-h-dvh bg-[#f5f7fa] p-3 sm:p-5 lg:p-6">
-      <div className="game-container max-w-[1400px] mx-auto">
+    <div className="h-dvh bg-[#f5f7fa] p-2 sm:p-3 md:p-3 lg:p-4 flex flex-col">
+      <div className="game-container max-w-[1400px] mx-auto flex flex-col flex-1 min-h-0">
         {/* ── Header Bar ── */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-[#e5e7eb]">
+        <div className="flex items-center justify-between px-3 sm:px-5 py-2 sm:py-2.5 border-b border-[#e5e7eb] shrink-0">
           {/* Left: Back */}
           <button
             onClick={goToLanding}
@@ -166,8 +166,8 @@ export default function GameBoard() {
           </button>
 
           {/* Center: Title + Difficulty badge */}
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-base sm:text-lg font-display font-bold text-slate-800">
+          <div className="flex items-center gap-2">
+            <h1 className="text-sm sm:text-base font-display font-bold text-slate-800">
               DxTER: The Optimization Game
             </h1>
             <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-[#177B7D] text-white">
@@ -219,12 +219,12 @@ export default function GameBoard() {
         </div>
 
         {/* ── Main Content ── */}
-        <div className="flex flex-col lg:flex-row">
+        <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
           {/* ── Left: Grid Area ── */}
-          <div className="flex-1 p-4 sm:p-6">
+          <div className="flex-1 p-3 sm:p-4 min-h-0 flex flex-col">
             {/* Grid header bar */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4">
-              <h2 className="text-sm sm:text-base font-display font-bold text-slate-800">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-2 shrink-0">
+              <h2 className="text-xs sm:text-sm font-display font-bold text-slate-800">
                 Optimization Grid
               </h2>
 
@@ -265,7 +265,7 @@ export default function GameBoard() {
               </div>
 
               {/* Legend */}
-              <div className="flex items-center gap-3 ml-auto text-[11px] text-slate-500">
+              <div className="hidden md:flex items-center gap-2.5 ml-auto text-[10px] text-slate-500">
                 <LegendItem
                   bgColor="#ffffff"
                   borderColor="#e5e7eb"
@@ -297,7 +297,7 @@ export default function GameBoard() {
             </div>
 
             {/* Grid */}
-            <div className="w-full max-w-[min(100%,640px)]">
+            <div className="w-full max-w-[min(100%,560px)] flex-1 min-h-0">
               <Grid
                 grid={grid}
                 gridSize={config.gridSize}
@@ -309,11 +309,11 @@ export default function GameBoard() {
           </div>
 
           {/* ── Right: Sidebar ── */}
-          <aside className="w-full lg:w-72 xl:w-80 shrink-0 border-t lg:border-t-0 lg:border-l border-[#e5e7eb] p-4 sm:p-6">
+          <aside className="w-full md:w-52 lg:w-60 xl:w-72 shrink-0 border-t md:border-t-0 md:border-l border-[#e5e7eb] p-3 sm:p-4 md:overflow-y-auto">
             {/* Budget remaining */}
-            <div className="mb-5">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-slate-600">
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-medium text-slate-600">
                   Budget remaining
                 </span>
                 {/* Info icon */}
@@ -331,7 +331,7 @@ export default function GameBoard() {
                   />
                 </svg>
               </div>
-              <div className="text-3xl sm:text-4xl font-display font-bold text-slate-800 mb-2">
+              <div className="text-2xl font-display font-bold text-slate-800 mb-1.5">
                 ${budgetRemaining}
               </div>
               <div className="progress-bar">
@@ -340,9 +340,9 @@ export default function GameBoard() {
                   style={{ width: `${budgetBarPercent}%` }}
                 />
               </div>
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-xs text-slate-500">Iterations</span>
-                <span className="flex items-center gap-1 text-sm font-semibold text-slate-700">
+              <div className="flex items-center justify-between mt-1.5">
+                <span className="text-[11px] text-slate-500">Iterations</span>
+                <span className="flex items-center gap-1 text-xs font-semibold text-slate-700">
                   <svg
                     className="w-4 h-4 text-slate-500"
                     fill="none"
@@ -362,9 +362,9 @@ export default function GameBoard() {
             </div>
 
             {/* Best value found */}
-            <div className="best-value-card mb-5">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-white/80">
+            <div className="best-value-card mb-3">
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-xs font-medium text-white/80">
                   Lowest value found
                 </span>
                 {/* Trophy icon */}
@@ -382,13 +382,13 @@ export default function GameBoard() {
                   />
                 </svg>
               </div>
-              <div className="text-4xl font-display font-bold text-white">
+              <div className="text-2xl font-display font-bold text-white">
                 {bestValue !== null ? bestValue : "—"}
               </div>
             </div>
 
             {/* Divider */}
-            <div className="border-t border-[#e5e7eb] my-5" />
+            <div className="border-t border-[#e5e7eb] my-3" />
 
             {/* Ask DxTER button */}
             <button
@@ -415,19 +415,19 @@ export default function GameBoard() {
               <span className="cost-badge">${DXTER_COST}</span>
             </button>
 
-            <p className="text-xs text-slate-400 text-center mb-5">
+            <p className="text-[11px] text-slate-400 text-center mb-3">
               Get 3 recommendations
             </p>
 
             {/* Cost per action */}
-            <div className="mb-5">
-              <h4 className="text-sm font-semibold text-slate-700 mb-2">
+            <div className="mb-3">
+              <h4 className="text-xs font-semibold text-slate-700 mb-1.5">
                 Cost per action
               </h4>
-              <div className="flex items-center justify-between py-1.5 text-sm text-slate-600">
-                <span className="flex items-center gap-2">
+              <div className="flex items-center justify-between py-1 text-xs text-slate-600">
+                <span className="flex items-center gap-1.5">
                   <svg
-                    className="w-4 h-4 text-slate-400"
+                    className="w-3.5 h-3.5 text-slate-400"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -443,10 +443,10 @@ export default function GameBoard() {
                 </span>
                 <span className="font-semibold">${FLIP_COST}</span>
               </div>
-              <div className="flex items-center justify-between py-1.5 text-sm text-slate-600">
-                <span className="flex items-center gap-2">
+              <div className="flex items-center justify-between py-1 text-xs text-slate-600">
+                <span className="flex items-center gap-1.5">
                   <svg
-                    className="w-4 h-4 text-[#177B7D]"
+                    className="w-3.5 h-3.5 text-[#177B7D]"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -467,7 +467,7 @@ export default function GameBoard() {
             {/* How it works link */}
             <button
               onClick={() => setShowHowItWorks(true)}
-              className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors cursor-pointer"
             >
               <svg
                 className="w-4 h-4"
@@ -552,11 +552,11 @@ function GameOverModal({
     <div className="modal-overlay">
       <div className="modal-content text-center">
         {/* Icon */}
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center mb-3">
           {foundOptimum ? (
-            <div className="w-14 h-14 rounded-2xl bg-[#177B7D]/10 flex items-center justify-center">
+            <div className="w-11 h-11 rounded-xl bg-[#177B7D]/10 flex items-center justify-center">
               <svg
-                className="w-8 h-8 text-[#177B7D]"
+                className="w-6 h-6 text-[#177B7D]"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -570,9 +570,9 @@ function GameOverModal({
               </svg>
             </div>
           ) : (
-            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
+            <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center">
               <svg
-                className="w-8 h-8 text-slate-500"
+                className="w-6 h-6 text-slate-500"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -589,28 +589,28 @@ function GameOverModal({
         </div>
 
         {/* Title */}
-        <h2 className="text-2xl font-display font-bold text-slate-800 mb-1">
+        <h2 className="text-xl font-display font-bold text-slate-800 mb-0.5">
           {foundOptimum
             ? "Minimum Found!"
             : budgetExhausted
               ? "Budget Exhausted"
               : "Game Over"}
         </h2>
-        <p className="text-sm text-slate-500 mb-6">
+        <p className="text-xs text-slate-500 mb-4">
           {foundOptimum
             ? "Congratulations! You found the global minimum."
             : "You have run out of budget and can no longer run experiments."}
         </p>
 
         {/* Distance to optimum */}
-        <div className="glass p-4 mb-5 text-left">
-          <p className="text-sm font-medium text-slate-600 mb-3 text-center">
+        <div className="glass p-3 mb-4 text-left">
+          <p className="text-xs font-medium text-slate-600 mb-2 text-center">
             Distance to optimum
           </p>
-          <div className="flex items-center justify-center gap-4 mb-3">
+          <div className="flex items-center justify-center gap-4 mb-2">
             <div className="text-center">
-              <p className="text-xs text-slate-400 mb-0.5">Your best</p>
-              <p className="text-3xl font-display font-bold text-slate-800">
+              <p className="text-[11px] text-slate-400 mb-0.5">Your best</p>
+              <p className="text-2xl font-display font-bold text-slate-800">
                 {best}
               </p>
             </div>
@@ -628,8 +628,8 @@ function GameOverModal({
               />
             </svg>
             <div className="text-center">
-              <p className="text-xs text-slate-400 mb-0.5">Global min</p>
-              <p className="text-3xl font-display font-bold text-[#177B7D]">
+              <p className="text-[11px] text-slate-400 mb-0.5">Global min</p>
+              <p className="text-2xl font-display font-bold text-[#177B7D]">
                 {optimumValue}
               </p>
             </div>
@@ -644,22 +644,22 @@ function GameOverModal({
         </div>
 
         {/* Quick stats */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-3 gap-2 mb-4">
           <div className="stat-card">
-            <p className="text-xs text-slate-400 mb-0.5">Lowest value</p>
-            <p className="text-xl font-display font-bold text-slate-800">
+            <p className="text-[11px] text-slate-400 mb-0.5">Lowest value</p>
+            <p className="text-lg font-display font-bold text-slate-800">
               {best}
             </p>
           </div>
           <div className="stat-card">
-            <p className="text-xs text-slate-400 mb-0.5">Iterations</p>
-            <p className="text-xl font-display font-bold text-slate-800">
+            <p className="text-[11px] text-slate-400 mb-0.5">Iterations</p>
+            <p className="text-lg font-display font-bold text-slate-800">
               {iterations}
             </p>
           </div>
           <div className="stat-card">
-            <p className="text-xs text-slate-400 mb-0.5">DxTER used</p>
-            <p className="text-xl font-display font-bold text-slate-800">
+            <p className="text-[11px] text-slate-400 mb-0.5">DxTER used</p>
+            <p className="text-lg font-display font-bold text-slate-800">
               {dxterUsed ? (
                 <svg
                   className="w-5 h-5 text-green-500 mx-auto"
@@ -682,16 +682,16 @@ function GameOverModal({
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button
             onClick={onPlayAgain}
-            className="flex-1 px-5 py-3 border border-[#e5e7eb] text-slate-700 font-medium text-sm rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+            className="flex-1 px-4 py-2.5 border border-[#e5e7eb] text-slate-700 font-medium text-sm rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
           >
             Play Again
           </button>
           <button
             onClick={onViewResults}
-            className="flex-1 px-5 py-3 bg-[#177B7D] hover:bg-[#155e5f] text-white font-semibold text-sm rounded-xl transition-colors cursor-pointer"
+            className="flex-1 px-4 py-2.5 bg-[#177B7D] hover:bg-[#155e5f] text-white font-semibold text-sm rounded-xl transition-colors cursor-pointer"
           >
             View Results
           </button>

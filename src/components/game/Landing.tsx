@@ -65,7 +65,7 @@ export default function Landing() {
   return (
     <div className="min-h-dvh flex flex-col">
       {/* ── Nav Bar ── */}
-      <nav className="flex items-center justify-between px-6 sm:px-10 py-4 border-b border-[#e5e7eb] bg-white">
+      <nav className="flex items-center justify-between px-4 sm:px-8 py-2.5 md:py-2.5 border-b border-[#e5e7eb] bg-white">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-lg bg-[#177B7D] flex items-center justify-center">
             <svg
@@ -117,22 +117,22 @@ export default function Landing() {
       </nav>
 
       {/* ── Main Content ── */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-12 sm:py-16">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-5 sm:py-8 md:py-6">
         {/* Title */}
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-slate-900 text-center mb-3 tracking-tight">
+        <h1 className="text-2xl sm:text-3xl md:text-3xl font-display font-bold text-slate-900 text-center mb-2 tracking-tight">
           DxTER: The Optimization Game
         </h1>
 
         {/* Subtitles */}
-        <p className="text-base sm:text-lg text-slate-500 text-center max-w-xl mb-1">
+        <p className="text-sm sm:text-base text-slate-500 text-center max-w-xl mb-0.5">
           Can you find the global minimum with limited resources?
         </p>
-        <p className="text-sm sm:text-base text-slate-400 text-center max-w-xl mb-8">
+        <p className="text-xs sm:text-sm text-slate-400 text-center max-w-xl mb-4">
           Learn how smarter experimentation outperforms brute force.
         </p>
 
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-[#e5e7eb] bg-white text-sm text-slate-600 mb-10">
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#e5e7eb] bg-white text-xs sm:text-sm text-slate-600 mb-5">
           <svg
             className="w-4 h-4 text-[#177B7D]"
             fill="none"
@@ -150,12 +150,12 @@ export default function Landing() {
         </div>
 
         {/* Select Difficulty */}
-        <h2 className="text-xl sm:text-2xl font-bold text-slate-800 text-center mb-6">
+        <h2 className="text-lg sm:text-xl font-bold text-slate-800 text-center mb-3">
           Select Difficulty
         </h2>
 
         {/* Difficulty Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-3xl mb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-3xl mb-5">
           {DIFFICULTIES.map(({ id, recommended }) => {
             const p = DIFFICULTY_PRESETS[id];
             const isSelected = selected === id;
@@ -172,7 +172,7 @@ export default function Landing() {
                 {/* Header row: label + radio */}
                 <div className="flex items-start justify-between mb-1">
                   <div>
-                    <span className="text-lg font-bold text-slate-800 font-display">
+                    <span className="text-base font-bold text-slate-800 font-display">
                       {p.label}
                     </span>
                     {recommended && (
@@ -184,13 +184,13 @@ export default function Landing() {
                   {/* Radio circle */}
                   <div
                     className={`
-                      w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5
+                      w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5
                       ${isSelected ? "border-[#177B7D] bg-[#177B7D]" : "border-slate-300 bg-white"}
                     `}
                   >
                     {isSelected && (
                       <svg
-                        className="w-3.5 h-3.5 text-white"
+                        className="w-3 h-3 text-white"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -207,12 +207,12 @@ export default function Landing() {
                 </div>
 
                 {/* Description */}
-                <p className="text-sm text-slate-500 mb-5 leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-500 mb-3 leading-relaxed">
                   {p.description}
                 </p>
 
                 {/* Stats */}
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <StatRow
                     icon={
                       <svg
@@ -272,7 +272,7 @@ export default function Landing() {
         {/* Start Button */}
         <button
           onClick={handleStartClick}
-          className="group flex items-center gap-2 px-10 py-4 bg-[#177B7D] hover:bg-[#155e5f] text-white font-semibold text-base rounded-xl shadow-lg shadow-[#177B7D]/20 hover:shadow-[#177B7D]/40 hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+          className="group flex items-center gap-2 px-8 py-3 bg-[#177B7D] hover:bg-[#155e5f] text-white font-semibold text-sm rounded-xl shadow-lg shadow-[#177B7D]/20 hover:shadow-[#177B7D]/40 hover:scale-[1.02] transition-all duration-200 cursor-pointer"
         >
           Start {preset.label}
           <svg

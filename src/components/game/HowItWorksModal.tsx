@@ -87,7 +87,7 @@ export default function HowItWorksModal({
         </div>
 
         {/* Content */}
-        <div className="p-7 sm:p-9 flex-1 overflow-y-auto min-h-[440px] flex flex-col">
+        <div className="p-5 sm:p-7 flex-1 overflow-y-auto min-h-[360px] flex flex-col">
           <div
             key={step}
             style={{ animation: "hiw-step-enter 0.4s ease-out both" }}
@@ -103,7 +103,7 @@ export default function HowItWorksModal({
         </div>
 
         {/* Footer: dots + nav buttons */}
-        <div className="border-t border-slate-200 px-7 sm:px-9 py-4 flex items-center justify-between shrink-0">
+        <div className="border-t border-slate-200 px-5 sm:px-7 py-3 flex items-center justify-between shrink-0">
           {/* Prev */}
           <button
             onClick={handlePrev}
@@ -245,13 +245,13 @@ function StepOverview() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-center">
       {/* Icon */}
-      <div className="relative mb-6">
+      <div className="relative mb-4">
         <div
-          className="w-20 h-20 rounded-full bg-[#177B7D] flex items-center justify-center shadow-lg shadow-[#177B7D]/20"
+          className="w-16 h-16 rounded-full bg-[#177B7D] flex items-center justify-center shadow-lg shadow-[#177B7D]/20"
           style={{ animation: "hiw-float 3s ease-in-out infinite" }}
         >
           <svg
-            className="w-10 h-10 text-white"
+            className="w-8 h-8 text-white"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -271,10 +271,10 @@ function StepOverview() {
         />
       </div>
 
-      <h3 className="text-2xl font-bold text-slate-800 mb-3">
+      <h3 className="text-xl font-bold text-slate-800 mb-2">
         How DxTER works
       </h3>
-      <p className="text-sm text-slate-500 max-w-md leading-relaxed mb-6">
+      <p className="text-sm text-slate-500 max-w-md leading-relaxed mb-4">
         DxTER is a{" "}
         <span className="font-semibold text-slate-700">
           Bayesian Optimization
@@ -394,10 +394,10 @@ function StepGrid() {
         </svg>
       </div>
 
-      <h3 className="text-xl font-bold text-slate-800 mb-2">
+      <h3 className="text-lg font-bold text-slate-800 mb-1.5">
         The hidden landscape
       </h3>
-      <p className="text-sm text-slate-500 max-w-md mb-6">
+      <p className="text-sm text-slate-500 max-w-md mb-4">
         Under every grid hides a mathematical function. Each tile has a value —
         but you can't see them until you flip.{" "}
         <span className="font-semibold text-slate-700">
@@ -531,8 +531,8 @@ function StepBudget() {
         </svg>
       </div>
 
-      <h3 className="text-xl font-bold text-slate-800 mb-2">Limited budget</h3>
-      <p className="text-sm text-slate-500 max-w-md mb-7">
+      <h3 className="text-lg font-bold text-slate-800 mb-1.5">Limited budget</h3>
+      <p className="text-sm text-slate-500 max-w-md mb-5">
         You start with a fixed budget. Every action costs money — so you need to
         be
         <span className="font-semibold text-slate-700"> strategic</span> about
@@ -540,7 +540,7 @@ function StepBudget() {
       </p>
 
       {/* Cost cards */}
-      <div className="flex items-stretch gap-4 mb-7 w-full max-w-sm">
+      <div className="flex items-stretch gap-3 mb-5 w-full max-w-sm">
         {costs.map((item, i) => (
           <div
             key={i}
@@ -593,10 +593,10 @@ function StepBudget() {
 function StepGP() {
   return (
     <div className="flex-1 flex flex-col">
-      <div className="text-center mb-5">
-        <div className="w-14 h-14 rounded-full bg-[#177B7D]/10 flex items-center justify-center mx-auto mb-4">
+      <div className="text-center mb-3">
+        <div className="w-12 h-12 rounded-full bg-[#177B7D]/10 flex items-center justify-center mx-auto mb-3">
           <svg
-            className="w-7 h-7 text-[#177B7D]"
+            className="w-6 h-6 text-[#177B7D]"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -609,7 +609,7 @@ function StepGP() {
             />
           </svg>
         </div>
-        <h3 className="text-xl font-bold text-slate-800 mb-2">
+        <h3 className="text-lg font-bold text-slate-800 mb-1.5">
           Gaussian Process model
         </h3>
         <p className="text-sm text-slate-500 max-w-lg mx-auto">
@@ -621,10 +621,10 @@ function StepGP() {
       </div>
 
       {/* GP Chart */}
-      <div className="bg-[#FAFAFA] border border-slate-200 rounded-xl p-5 flex-1">
+      <div className="bg-[#FAFAFA] border border-slate-200 rounded-xl p-3 flex-1">
         <svg
           width="100%"
-          height="200"
+          height="180"
           viewBox="0 0 500 200"
           preserveAspectRatio="xMidYMid meet"
         >
@@ -721,10 +721,10 @@ function StepGP() {
 function StepAcquisition() {
   return (
     <div className="flex-1 flex flex-col">
-      <div className="text-center mb-5">
-        <div className="w-14 h-14 rounded-full bg-[#177B7D]/10 flex items-center justify-center mx-auto mb-4">
+      <div className="text-center mb-3">
+        <div className="w-12 h-12 rounded-full bg-[#177B7D]/10 flex items-center justify-center mx-auto mb-3">
           <svg
-            className="w-7 h-7 text-[#177B7D]"
+            className="w-6 h-6 text-[#177B7D]"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -737,7 +737,7 @@ function StepAcquisition() {
             />
           </svg>
         </div>
-        <h3 className="text-xl font-bold text-slate-800 mb-2">
+        <h3 className="text-lg font-bold text-slate-800 mb-1.5">
           Exploration vs Exploitation
         </h3>
         <p className="text-sm text-slate-500 max-w-lg mx-auto">
@@ -751,7 +751,7 @@ function StepAcquisition() {
       </div>
 
       {/* Two columns: Explore + Exploit */}
-      <div className="grid grid-cols-2 gap-4 mb-5">
+      <div className="grid grid-cols-2 gap-3 mb-3">
         <div
           className="bg-slate-50 border border-slate-200 rounded-xl p-4"
           style={{ animation: "hiw-slide-right 0.5s ease-out both 0.2s" }}
@@ -825,11 +825,11 @@ function StepAcquisition() {
       </div>
 
       {/* Acquisition function chart */}
-      <div className="bg-[#FAFAFA] border border-slate-200 rounded-xl p-4 flex-1">
+      <div className="bg-[#FAFAFA] border border-slate-200 rounded-xl p-3 flex-1">
         <div className="text-[11px] font-semibold text-slate-500 mb-2 text-center">
           Acquisition function
         </div>
-        <svg width="100%" height="120" viewBox="0 0 420 120">
+        <svg width="100%" height="100" viewBox="0 0 420 100">
           {/* Baseline */}
           <line
             x1="20"
@@ -1043,10 +1043,10 @@ function StepAnalogy() {
         </svg>
       </div>
 
-      <h3 className="text-xl font-bold text-slate-800 mb-2">
+      <h3 className="text-lg font-bold text-slate-800 mb-1.5">
         Same as real research
       </h3>
-      <p className="text-sm text-slate-500 max-w-md mb-6">
+      <p className="text-sm text-slate-500 max-w-md mb-4">
         This game mirrors how scientists use{" "}
         <span className="font-semibold text-slate-700">DxTER</span> in real labs
         to optimize processes with minimal experiments.

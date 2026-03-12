@@ -114,8 +114,8 @@ export default function Results() {
     <div className="min-h-dvh bg-[#f5f7fa]">
       {/* ── Header Bar ── */}
       <div className="bg-white border-b border-[#e5e7eb]">
-        <div className="max-w-5xl mx-auto flex items-center justify-between px-4 sm:px-6 py-4">
-          <h1 className="text-base sm:text-lg font-display font-bold text-slate-800">
+        <div className="max-w-5xl mx-auto flex items-center justify-between px-4 sm:px-6 py-2 md:py-2.5">
+          <h1 className="text-sm sm:text-base font-display font-bold text-slate-800">
             DxTER The Optimization Game
           </h1>
           <button
@@ -142,13 +142,13 @@ export default function Results() {
 
       {/* ── Main Content ── */}
       <div
-        className={`max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 transition-all duration-700 ${animateIn ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+        className={`max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 transition-all duration-700 ${animateIn ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
       >
         {/* Trophy Icon */}
-        <div className="flex justify-center mb-5">
-          <div className="w-20 h-20 rounded-full bg-[#177B7D]/10 flex items-center justify-center">
+        <div className="flex justify-center mb-3">
+          <div className="w-14 h-14 rounded-full bg-[#177B7D]/10 flex items-center justify-center">
             <svg
-              className="w-10 h-10 text-[#177B7D]"
+              className="w-7 h-7 text-[#177B7D]"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -164,8 +164,8 @@ export default function Results() {
         </div>
 
         {/* Headline */}
-        <div className="text-center mb-8">
-          <h2 className="text-2xl sm:text-3xl font-display font-bold text-slate-800 mb-2">
+        <div className="text-center mb-5">
+          <h2 className="text-xl sm:text-2xl font-display font-bold text-slate-800 mb-1.5">
             {foundOptimum
               ? "You found the global minimum!"
               : `You reached ${stats.bestValueFound} — optimum was ${stats.optimumValue}`}
@@ -186,11 +186,11 @@ export default function Results() {
         </div>
 
         {/* ── Stats Row: Your Run + Archetype ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-4 mb-5">
           {/* Your Run Card */}
-          <div className="glass p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-display font-bold text-slate-800">
+          <div className="glass p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-display font-bold text-slate-800">
                 Your Run
               </h3>
               <span
@@ -205,12 +205,12 @@ export default function Results() {
             </div>
 
             {/* Big stats */}
-            <div className="grid grid-cols-3 gap-6 mb-5">
+            <div className="grid grid-cols-3 gap-4 mb-3">
               <div className="text-center">
-                <p className="text-xs text-slate-400 mb-1">
+                <p className="text-[11px] text-slate-400 mb-0.5">
                   Lowest Value Found
                 </p>
-                <p className="text-4xl font-display font-bold text-[#177B7D]">
+                <p className="text-2xl font-display font-bold text-[#177B7D]">
                   {stats.bestValueFound}
                 </p>
                 {foundOptimum && (
@@ -233,24 +233,24 @@ export default function Results() {
                 )}
               </div>
               <div className="text-center">
-                <p className="text-xs text-slate-400 mb-1">Total Iterations</p>
-                <p className="text-4xl font-display font-bold text-slate-800">
+                <p className="text-[11px] text-slate-400 mb-0.5">Total Iterations</p>
+                <p className="text-2xl font-display font-bold text-slate-800">
                   {stats.iterations}
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-xs text-slate-400 mb-1">Budget Spent</p>
-                <p className="text-4xl font-display font-bold text-slate-800">
+                <p className="text-[11px] text-slate-400 mb-0.5">Budget Spent</p>
+                <p className="text-2xl font-display font-bold text-slate-800">
                   ${stats.budgetSpent}
                 </p>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-[11px] text-slate-400 mt-0.5">
                   of ${config.budget}
                 </p>
               </div>
             </div>
 
             {/* Divider */}
-            <div className="border-t border-[#e5e7eb] pt-4 flex items-center gap-8">
+            <div className="border-t border-[#e5e7eb] pt-3 flex items-center gap-6">
               <div className="flex items-center gap-2 text-sm text-slate-600">
                 <svg
                   className="w-4 h-4 text-[#177B7D]"
@@ -293,18 +293,18 @@ export default function Results() {
           {/* Archetype Card */}
           <div className="archetype-card flex flex-col items-center justify-center">
             {/* Avatar / Emoji */}
-            <div className="text-5xl mb-3">{archetype.emoji}</div>
-            <h3 className="text-xl font-display font-bold text-white mb-1">
+            <div className="text-3xl mb-2">{archetype.emoji}</div>
+            <h3 className="text-lg font-display font-bold text-white mb-0.5">
               {archetype.title}
             </h3>
-            <p className="text-sm text-white/70 mb-5 text-center leading-relaxed">
+            <p className="text-xs text-white/70 mb-3 text-center leading-relaxed">
               {archetype.description}
             </p>
 
             {/* Efficiency Score */}
-            <div className="bg-white/15 rounded-xl px-6 py-3 w-full text-center">
-              <p className="text-xs text-white/60 mb-0.5">Efficiency Score</p>
-              <p className="text-4xl font-display font-bold text-white">
+            <div className="bg-white/15 rounded-xl px-5 py-2.5 w-full text-center">
+              <p className="text-[11px] text-white/60 mb-0.5">Efficiency Score</p>
+              <p className="text-2xl font-display font-bold text-white">
                 {efficiencyScore}%
               </p>
             </div>
@@ -313,9 +313,9 @@ export default function Results() {
 
         {/* ── Board Overview (Heatmap) ── */}
         {boardData && (
-          <div className="glass p-6 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-display font-bold text-slate-800">
+          <div className="glass p-4 mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-display font-bold text-slate-800">
                 Board Overview
               </h3>
               <div className="flex items-center gap-4 text-xs text-slate-500">
@@ -334,16 +334,16 @@ export default function Results() {
             </div>
 
             {/* Color scale legend */}
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-xs text-slate-400">Low</span>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[11px] text-slate-400">Low</span>
               <div
-                className="flex-1 h-3 rounded-full overflow-hidden"
+                className="flex-1 h-2.5 rounded-full overflow-hidden"
                 style={{
                   background:
                     "linear-gradient(to right, rgb(30,58,95), rgb(37,99,235), rgb(34,197,94), rgb(234,179,8), rgb(239,68,68), rgb(255,20,147))",
                 }}
               />
-              <span className="text-xs text-slate-400">High</span>
+              <span className="text-[11px] text-slate-400">High</span>
             </div>
 
             {/* Grid */}
@@ -453,7 +453,7 @@ export default function Results() {
             </div>
 
             {/* Grid info */}
-            <div className="mt-4 flex items-center justify-center gap-6 text-xs text-slate-400">
+            <div className="mt-3 flex items-center justify-center gap-6 text-[11px] text-slate-400">
               <span>
                 {boardData.playerRevealed.length} of{" "}
                 {boardData.gridSize * boardData.gridSize} cells explored (
@@ -473,12 +473,12 @@ export default function Results() {
         )}
 
         {/* ── How You Compare ── */}
-        <div className="glass p-6 mb-8">
-          <h3 className="text-lg font-display font-bold text-slate-800 mb-5">
+        <div className="glass p-4 mb-5">
+          <h3 className="text-base font-display font-bold text-slate-800 mb-3">
             How You Compare
           </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Your run bar */}
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -489,7 +489,7 @@ export default function Results() {
                   {stats.iterations} iterations
                 </span>
               </div>
-              <div className="w-full h-9 bg-[#e5e7eb] rounded-lg overflow-hidden">
+              <div className="w-full h-7 bg-[#e5e7eb] rounded-lg overflow-hidden">
                 <div
                   className="comparison-bar bg-[#177B7D]"
                   style={{
@@ -512,7 +512,7 @@ export default function Results() {
                   {typicalIterations} iterations
                 </span>
               </div>
-              <div className="w-full h-9 bg-[#e5e7eb] rounded-lg overflow-hidden">
+              <div className="w-full h-7 bg-[#e5e7eb] rounded-lg overflow-hidden">
                 <div
                   className="comparison-bar bg-slate-500"
                   style={{
@@ -527,7 +527,7 @@ export default function Results() {
           </div>
 
           {/* Insight message */}
-          <div className="mt-5 flex items-start gap-2 bg-[#177B7D]/5 border border-[#177B7D]/10 rounded-lg p-3">
+          <div className="mt-3 flex items-start gap-2 bg-[#177B7D]/5 border border-[#177B7D]/10 rounded-lg p-2.5">
             <svg
               className="w-4 h-4 text-[#177B7D] shrink-0 mt-0.5"
               fill="none"
@@ -549,11 +549,11 @@ export default function Results() {
         </div>
 
         {/* ── Leaderboard ── */}
-        <div className="glass p-6 mb-8">
-          <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <span className="text-xl">🏆</span>
-              <h3 className="text-lg font-display font-bold text-slate-800">
+        <div className="glass p-4 mb-5">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🏆</span>
+              <h3 className="text-base font-display font-bold text-slate-800">
                 Leaderboard
               </h3>
             </div>
@@ -665,10 +665,10 @@ export default function Results() {
         </div>
 
         {/* ── Action Buttons ── */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
           <button
             onClick={restartGame}
-            className="group flex items-center gap-2 px-8 py-3.5 bg-[#177B7D] hover:bg-[#155e5f] text-white font-semibold text-sm rounded-xl shadow-lg shadow-[#177B7D]/20 hover:shadow-[#177B7D]/40 transition-all duration-200 cursor-pointer"
+            className="group flex items-center gap-2 px-6 py-2.5 bg-[#177B7D] hover:bg-[#155e5f] text-white font-semibold text-sm rounded-xl shadow-lg shadow-[#177B7D]/20 hover:shadow-[#177B7D]/40 transition-all duration-200 cursor-pointer"
           >
             <svg
               className="w-4 h-4"
@@ -688,7 +688,7 @@ export default function Results() {
 
           <button
             onClick={goToLanding}
-            className="px-6 py-3 border border-[#e5e7eb] text-slate-600 font-medium text-sm rounded-xl hover:bg-white hover:border-slate-300 transition-all duration-200 cursor-pointer flex items-center gap-2"
+            className="px-5 py-2.5 border border-[#e5e7eb] text-slate-600 font-medium text-sm rounded-xl hover:bg-white hover:border-slate-300 transition-all duration-200 cursor-pointer flex items-center gap-2"
           >
             <svg
               className="w-4 h-4"
